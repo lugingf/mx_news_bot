@@ -1,0 +1,10 @@
+/output
+!output/csv
+data/
+.DS_Store
+parse
+mx_news_bot
+upload
+serveo_url.txt
+.env.local
+

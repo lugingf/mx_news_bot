@@ -1,0 +1,74 @@
+package bot
+
+import (
+	"fmt"
+	tele "gopkg.in/telebot.v3"
+	"log/slog"
+	"sync"
+
+	"mx_news_bot/config"
+	"mx_news_bot/internal/formatter"
+	"mx_news_bot/internal/service"
+)
+
+type Bot struct {
+	Client          *tele.Bot
+	app             *service.Application
+	stateController *StateController
+	formatter       *formatter.TgFormatter
+	log             *slog.Logger
+}
+
+func (b *Bot) Start() {
+	b.Client.Start()
+}
+
+func (b *Bot) Stop() {
+	b.Client.Stop()
+}
+
+func New(cfg *config.Config, app *service.Application, log *slog.Logger) *Bot {
+	botClient, err := tele.NewBot(tele.Settings{
+		Token: cfg.App.BotToken,
+		Poller: &tele.Webhook{
+			Listen: fmt.Sprintf("0.0.0.0:%s", cfg.App.Port),
+			Endpoint: &tele.WebhookEndpoint{
+				PublicURL: cfg.App.HookUrl,
+			},
+			//TLS: &tele.WebhookTLS{
+			//	Cert: "/etc/letsencrypt/live/lugingfwebhookambot.com/fullchain.pem",
+			//	Key:  "/etc/letsencrypt/live/lugingfwebhookambot.com/privkey.pem",
+			//},
+		},
+		Verbose: cfg.App.BotVerbose,
+	})
+
+	if err != nil {
+		log.Error("tg bot Client initial failed", "error", err)
+		return nil
+	}
+
+	log.Info("Make bot")
+
+	sc := &StateController{
+		userStates: make(map[int64]string),
+		app:        app,
+		mu:         sync.Mutex{},
+		log:        log,
+	}
+
+	tgFmt := formatter.NewTelegram()
+
+	b := &Bot{
+		Client:          botClient,
+		app:             app,
+		log:             log,
+		stateController: sc,
+		formatter:       tgFmt,
+	}
+
+	log.Info("Make handlers")
+	b.setupHandlers()
+
+	return b
+}
