@@ -18,6 +18,27 @@ type SXResultsRider struct {
 	Team     string `db:"team"`
 }
 
+// AI
+type RaceResult struct {
+	Event       string  `json:"event"`
+	City        string  `json:"city"`
+	Stadium     string  `json:"stadium"`
+	Date        string  `json:"date"`
+	Round       string  `json:"round"`
+	TotalRounds string  `json:"total_rounds"`
+	Class       string  `json:"class"`
+	Results     []Rider `json:"results"`
+}
+
+type Rider struct {
+	Position    string `json:"pos"`
+	RiderNumber string `json:"rider_number"`
+	Rider       string `json:"rider"`
+	Hometown    string `json:"hometown"`
+	Bike        string `json:"bike"`
+	Team        string `json:"team"`
+}
+
 // Championship model representing championship details
 type Championship struct {
 	ID           int    `db:"championship_id"`

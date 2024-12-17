@@ -2,7 +2,7 @@
 -- Table 1: Riders
 CREATE TABLE riders
 (
-    rider_id      SERIAL PRIMARY KEY,
+    id            SERIAL PRIMARY KEY,
     full_name     VARCHAR(100) NOT NULL,
     nationality   VARCHAR(50),
     date_of_birth DATE,
@@ -12,7 +12,7 @@ CREATE TABLE riders
 -- Table 2: Tracks
 CREATE TABLE tracks
 (
-    track_id           SERIAL PRIMARY KEY,
+    id                 SERIAL PRIMARY KEY,
     name               VARCHAR(100) NOT NULL,
     city               VARCHAR(50),
     state              VARCHAR(50),
@@ -25,7 +25,7 @@ CREATE TABLE tracks
 -- Table 3: Championships
 CREATE TABLE championships
 (
-    championship_id   SERIAL PRIMARY KEY,
+    id                SERIAL PRIMARY KEY,
     championship_name VARCHAR(100) NOT NULL, -- E.g., "AMA Pro Motocross"
     class_names       TEXT[]       NOT NULL, -- Array of classes, e.g., {"450cc", "250cc", "MXGP"}
     season_year       INT          NOT NULL, -- Year of the championship
@@ -35,7 +35,7 @@ CREATE TABLE championships
 -- Table 4: Rider Teams
 CREATE TABLE rider_teams
 (
-    rider_team_id   SERIAL PRIMARY KEY,
+    id              SERIAL PRIMARY KEY,
     rider_id        INT REFERENCES riders (rider_id) ON DELETE CASCADE,
     team_name       VARCHAR(100) NOT NULL,
     bike_brand      VARCHAR(50),       -- Optional field
@@ -46,7 +46,7 @@ CREATE TABLE rider_teams
 -- Table 5: Events
 CREATE TABLE events
 (
-    event_id         SERIAL PRIMARY KEY,
+    id               SERIAL PRIMARY KEY,
     championship_id  INT REFERENCES championships (championship_id),
     classes          VARCHAR(255),
     venue_name       VARCHAR(100),
@@ -63,59 +63,51 @@ CREATE TABLE events
 -- Table 6: AMA Pro Motocross Results
 CREATE TABLE ama_promotocross_results
 (
-    result_id       SERIAL PRIMARY KEY,
+    id              SERIAL PRIMARY KEY,
     championship_id INT REFERENCES championships (championship_id),
-    event_id        INT REFERENCES events (event_id),
     moto_number     INT NOT NULL,                               -- 1 or 2
     rider_id        INT REFERENCES riders (rider_id),
     rider_team_id   INT REFERENCES rider_teams (rider_team_id), -- Optional, for event-specific team tracking
     position        INT NOT NULL,
-    points_awarded  INT NOT NULL,
-    lap_time        VARCHAR(50)                                 -- Optional: lap time (string or seconds)
+    points_awarded  INT NOT NULL
 );
 
 -- Table 7: AMA Supercross Results
 CREATE TABLE ama_supercross_results
 (
-    result_id       SERIAL PRIMARY KEY,
+    id              SERIAL PRIMARY KEY,
     championship_id INT REFERENCES championships (championship_id),
-    event_id        INT REFERENCES events (event_id),
     race_type       VARCHAR(50) NOT NULL,                       -- "Heat", "LCQ", "Main Event", or "Triple Crown"
     race_number     INT,                                        -- For Triple Crown events (1, 2, or 3)
     rider_id        INT REFERENCES riders (rider_id),
     rider_team_id   INT REFERENCES rider_teams (rider_team_id), -- Optional, for event-specific team tracking
     position        INT         NOT NULL,
-    points_awarded  INT,
-    lap_time        VARCHAR(50)                                 -- Optional: lap time (string or seconds)
+    points_awarded  INT
 );
 
 -- Table 8: MXGP Results
 CREATE TABLE mxgp_results
 (
-    result_id       SERIAL PRIMARY KEY,
+    id              SERIAL PRIMARY KEY,
     championship_id INT REFERENCES championships (championship_id),
-    event_id        INT REFERENCES events (event_id),
     moto_number     INT NOT NULL,                               -- 1 or 2
     rider_id        INT REFERENCES riders (rider_id),
     rider_team_id   INT REFERENCES rider_teams (rider_team_id), -- Optional, for event-specific team tracking
     position        INT NOT NULL,
-    points_awarded  INT NOT NULL,
-    lap_time        VARCHAR(50)                                 -- Optional: lap time (string or seconds)
+    points_awarded  INT NOT NULL
 );
 
 -- Table 9: World Supercross Results
 CREATE TABLE wsx_results
 (
-    result_id       SERIAL PRIMARY KEY,
+    id              SERIAL PRIMARY KEY,
     championship_id INT REFERENCES championships (championship_id),
-    event_id        INT REFERENCES events (event_id),
     race_type       VARCHAR(50) NOT NULL,                       -- "Heat", "LCQ", "Main Event", or "Triple Crown"
     race_number     INT,                                        -- For Triple Crown events (1, 2, or 3)
     rider_id        INT REFERENCES riders (rider_id),
     rider_team_id   INT REFERENCES rider_teams (rider_team_id), -- Optional, for event-specific team tracking
     position        INT         NOT NULL,
-    points_awarded  INT,
-    lap_time        VARCHAR(50)                                 -- Optional: lap time (string or seconds)
+    points_awarded  INT
 );
 
 -- Table 10: Points Distribution

@@ -1,15 +1,15 @@
 package main
 
 import (
-	"encoding/csv"
+	"bufio"
+	"encoding/json"
 	"fmt"
 	"log"
-	"mx_news_bot/internal/models"
 	"os"
 	"os/exec"
 	"strings"
 
-	"golang.org/x/net/html"
+	"mx_news_bot/internal/models"
 )
 
 const (
@@ -31,143 +31,136 @@ const (
 )
 
 func main() {
+	//pdfFile := "data/2014/S1499/MonsterEnergyCUP/MCF1RES.pdf"
+	//pdfFile := "data/2024/S2485/250SX/S2F1RES.pdf"
 	pdfFile := "data/2024/S2485/450SX/S1F1RES.pdf"
-	htmlFile := "output/text.html"
-	htmlTextsFile := "output/texts.html"
+	textFile := "output/S1F1RES.txt"
 
-	err := convertPDFToHTML(pdfFile, htmlFile)
+	err := convertPDFToText(pdfFile, textFile)
 	if err != nil {
-		fmt.Println("Ошибка при конвертации PDF в HTML:", err)
-		return
+		log.Fatalf("Ошибка при конвертации PDF в текст: %v", err)
 	}
 
-	file, err := os.Open(htmlTextsFile)
+	file, err := os.Open(textFile)
 	if err != nil {
-		fmt.Println("Ошибка при открытии файла HTML:", err)
-		return
+		log.Fatalf("Ошибка при открытии файла текста: %v", err)
 	}
 	defer file.Close()
 
-	doc, err := html.Parse(file)
-	if err != nil {
-		fmt.Println("Ошибка при парсинге HTML:", err)
-		return
-	}
+	var raceResult models.RaceResult
+	scanner := bufio.NewScanner(file)
+	parseText(scanner, &raceResult)
 
-	var riders []models.SXResultsRider
-
-	var traverse func(*html.Node)
-	var current models.SXResultsRider
-	var collectData bool
-	var fieldIndex int
-	positionCounter := 1 // Счётчик для автоматической позиции
-
-	traverse = func(n *html.Node) {
-		if n.Type == html.ElementNode && n.Data == "b" {
-			// Извлечение текста из <b> тегов
-			if n.FirstChild != nil {
-				text := strings.TrimSpace(n.FirstChild.Data)
-				if isNumeric(text) {
-					if current.Position != "" {
-						riders = append(riders, current)
-					}
-					current = models.SXResultsRider{}
-					fieldIndex = 1
-					collectData = true
-				}
-			}
-		} else if n.Type == html.TextNode && collectData {
-			// Извлечение данных в зависимости от поля
-			text := strings.TrimSpace(n.Data)
-			if text != "" {
-				switch fieldIndex {
-				case 1:
-					current.Number = text
-				case 2:
-					current.Name = text
-				case 3:
-					current.Hometown = text
-				case 4:
-					current.Bike = text
-				case 5:
-					current.Interval = text
-				case 6:
-					current.BestLap = text
-				case 7:
-					current.Team = text
-					if current.Position == "" {
-						current.Position = fmt.Sprintf("%d", positionCounter)
-						positionCounter++
-					}
-					collectData = false
-				}
-				fieldIndex++
-			}
-		}
-
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			traverse(c)
-		}
-	}
-
-	traverse(doc)
-
-	// Добавляем последнюю запись
-	if current.Position != "" {
-		riders = append(riders, current)
-	}
-
-	// Выводим результат
-	fmt.Println("POS\t#\tRIDER\t\tHOMETOWN\t\tBIKE\t\tINTERVAL\tBEST LAP\tTEAM")
-	for _, rider := range riders {
-		fmt.Printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-			rider.Position, rider.Number, rider.Name, rider.Hometown, rider.Bike, rider.Interval, rider.BestLap, rider.Team)
-	}
-
-	writeToCSV(riders)
+	outputJSON(raceResult)
 }
 
-func writeToCSV(riders []models.SXResultsRider) {
-	file, err := os.Create("results.csv")
-	if err != nil {
-		log.Fatalf("Ошибка создания файла: %v", err)
-	}
-	defer file.Close()
-
-	writer := csv.NewWriter(file)
-	defer writer.Flush()
-
-	headers := []string{"POS", "NUMBER", "RIDER", "HOMETOWN", "BIKE", "INTERVAL", "BEST LAP", "TEAM"}
-	if err := writer.Write(headers); err != nil {
-		log.Fatalf("Ошибка записи заголовков: %v", err)
-	}
-
-	for _, rider := range riders {
-		record := []string{
-			rider.Position, rider.Number, rider.Name, rider.Hometown,
-			rider.Bike, rider.Interval, rider.BestLap, rider.Team,
-		}
-		if err := writer.Write(record); err != nil {
-			log.Fatalf("Ошибка записи строки: %v", err)
-		}
-	}
-}
-
-// выполняет команду pdftohtml для преобразования PDF в HTML
-func convertPDFToHTML(pdfFile, htmlFile string) error {
-	fmt.Printf("Opening PDF %s", pdfFile)
-	cmd := exec.Command("pdftohtml", pdfFile, htmlFile)
+func convertPDFToText(pdfFile, textFile string) error {
+	fmt.Printf("Converting PDF %s to text\n", pdfFile)
+	cmd := exec.Command("pdftotext", "-f", "1", "-l", "1", "-layout", pdfFile, textFile)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
 
-// Проверка, является ли строка числом
-func isNumeric(s string) bool {
-	for _, c := range s {
-		if c < '0' || c > '9' {
-			return false
+func parseText(scanner *bufio.Scanner, result *models.RaceResult) {
+	lineIndex := 0
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		switch lineIndex {
+		case 0:
+			result.Event = line
+		case 1:
+			result.City = line
+		case 2:
+			result.Stadium = line
+		case 3:
+			if parts := strings.SplitN(line, " - ", 2); len(parts) == 2 {
+				fmt.Sscanf(parts[0], "ROUND %s OF %s", &result.Round, &result.TotalRounds)
+				result.Date = parts[1]
+			}
+		case 4:
+			result.Class = line
+		}
+		if strings.HasPrefix(line, "POS.") {
+			parseRiders(scanner, &result.Results)
+		}
+		lineIndex++
+	}
+}
+
+func parseRiders(scanner *bufio.Scanner, results *[]models.Rider) {
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "Humidity:") {
+			break
+		}
+
+		fields := splitByColumns(line)
+		if len(fields) < 5 {
+			log.Println("Short row", fields)
+			continue
+		}
+
+		team, ok := fields["TEAM"]
+		if !ok {
+			team = ""
+		}
+
+		*results = append(*results, models.Rider{
+			Position:    strings.TrimSpace(fields["POS"]),
+			RiderNumber: strings.TrimSpace(fields["NUMBER"]),
+			Rider:       strings.TrimSpace(fields["RIDER"]),
+			Hometown:    strings.TrimSpace(fields["HOMETOWN"]),
+			Bike:        strings.TrimSpace(fields["BIKE"]),
+			Team:        strings.TrimSpace(team),
+		})
+	}
+}
+
+func splitByColumns(line string) map[string]string {
+	fields := make(map[string]string)
+	currentField := strings.Builder{}
+	spaceCount := 0
+	columnOrder := []string{"POS", "NUMBER", "RIDER", "HOMETOWN", "BIKE", "INTERVAL", "BEST_TIME", "TEAM"}
+	currentIndex := 0
+
+	for _, r := range line {
+		if r == ' ' {
+			spaceCount++
+			if currentIndex == 1 && currentField.Len() > 0 && spaceCount >= 1 {
+				fields[columnOrder[currentIndex]] = strings.TrimSpace(currentField.String())
+				currentField.Reset()
+				currentIndex++
+				spaceCount = 0
+				continue
+			}
+			if spaceCount >= 3 && currentField.Len() > 0 {
+				fields[columnOrder[currentIndex]] = strings.TrimSpace(currentField.String())
+				currentField.Reset()
+				currentIndex++
+				if currentIndex >= len(columnOrder) {
+					break
+				}
+			}
+		} else {
+			if spaceCount > 0 && currentField.Len() > 0 {
+				currentField.WriteString(strings.Repeat(" ", spaceCount))
+			}
+			currentField.WriteRune(r)
+			spaceCount = 0
 		}
 	}
-	return true
+
+	if currentField.Len() > 0 && currentIndex < len(columnOrder) {
+		fields[columnOrder[currentIndex]] = strings.TrimSpace(currentField.String())
+	}
+	return fields
+}
+
+func outputJSON(result models.RaceResult) {
+	jsonData, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		log.Fatalf("Ошибка при создании JSON: %v", err)
+	}
+	fmt.Println(string(jsonData))
 }

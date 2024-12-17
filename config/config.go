@@ -14,6 +14,13 @@ type Config struct {
 	Metrics *Metrics `env:",prefix=METRICS_"`
 	Http    *Http    `env:",prefix=HTTP_"`
 	DB      *DB      `env:",prefix=DB_MAIN_"`
+	Yandex  *Yandex  `env:",prefix=YANDEX_"`
+}
+
+type Yandex struct {
+	BaseURL  string `env:"BASE_URL, required"`
+	FolderID string `env:"FOLDER_ID, required"`
+	ApiKey   string `env:"API_KEY, required"`
 }
 
 type App struct {

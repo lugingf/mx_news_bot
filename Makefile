@@ -32,6 +32,9 @@ build:
 build-parser:
 	go build -ldflags "-s -w" -o parse ./cmd/parser
 
+build-aiparser:
+	go build -ldflags "-s -w" -o aiparse ./cmd/aiparser
+
 build-uploader:
 	go build -ldflags "-s -w" -o upload ./cmd/uploader
 
