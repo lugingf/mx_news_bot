@@ -24,10 +24,20 @@ type Yandex struct {
 }
 
 type App struct {
-	Port       string `env:"PORT"`
-	BotToken   string `env:"BOT_TOKEN, required"`
-	HookUrl    string `env:"BOT_HOOK, required"`
-	BotVerbose bool   `env:"BOT_VERBOSE"`
+	Port         string              `env:"PORT"`
+	BotToken     string              `env:"BOT_TOKEN, required"`
+	HookUrl      string              `env:"BOT_HOOK, required"`
+	BotVerbose   bool                `env:"BOT_VERBOSE"`
+	ChampConfigs ChampionshipConfigs `env:",prefix=CHAMP_CONFIGS"`
+}
+
+type ChampionshipConfigs struct {
+	SXConfig    ChampionshipConfig `env:",prefix=SX_CONFIG"`
+	ProMXConfig ChampionshipConfig `env:",prefix=PROMX_CONFIG"`
+}
+
+type ChampionshipConfig struct {
+	BaseURL string `env:"BASE_URL, required"`
 }
 
 type Metrics struct {

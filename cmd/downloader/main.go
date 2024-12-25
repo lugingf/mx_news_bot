@@ -115,7 +115,7 @@ func main() {
 		// Выполняем chromedp задачи для загрузки страницы и получения ее содержимого
 		err := chromedp.Run(ctx,
 			chromedp.Navigate(link),
-			chromedp.Sleep(10*time.Second), // Ждем, чтобы динамическое содержимое загрузилось
+			chromedp.Sleep(5*time.Second), // Ждем, чтобы динамическое содержимое загрузилось
 			chromedp.OuterHTML("html", &pageContent),
 		)
 		fmt.Println("10 секунд прошло")
