@@ -97,4 +97,18 @@ VALUES (1, 1, '2025-01-11', 'Angel Stadium', '450SX, 250SX West, KTM Junior',
        (2, 11, '2025-08-23', 'Budds Creek Motocross Park', '450 Class, 250 Class',
         'https://promotocross.com/race/budds-creek-national', 27, 'Standard', 'sand');
 
+UPDATE events
+SET event_code = CASE
+                     WHEN championship_id = 1 THEN
+                         CASE
+                             WHEN round_number = 18 THEN CONCAT('S', EXTRACT(YEAR FROM event_date) - 2000, '99') -- Exception for SX Round 18
+                             ELSE CONCAT('S', EXTRACT(YEAR FROM event_date) - 2000, LPAD((round_number * 5)::TEXT, 2, '0')) -- General SX logic
+                             END
+                     WHEN championship_id = 2 THEN
+                         CONCAT('M', EXTRACT(YEAR FROM event_date) - 2000, LPAD((round_number * 5)::TEXT, 2, '0')) -- MX logic
+                     ELSE NULL -- Default case if necessary
+END;
+
+
+
 -- +goose Down

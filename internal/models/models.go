@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 type User struct {
 	ID        int64  `db:"id"`
 	TGUserID  int64  `db:"tg_user_id"`
@@ -7,27 +9,18 @@ type User struct {
 	IsPremium bool   `db:"is_premium"`
 }
 
-type SXResultsRider struct {
-	Position string `db:"position"`
-	Number   string `db:"number"`
-	Name     string `db:"name"`
-	Hometown string `db:"hometown"`
-	Bike     string `db:"bike"`
-	Interval string `db:"interval"`
-	BestLap  string `db:"best_lap"`
-	Team     string `db:"team"`
-}
-
-// AI
 type RaceResult struct {
-	Event       string  `json:"event"`
-	City        string  `json:"city"`
-	Stadium     string  `json:"stadium"`
-	Date        string  `json:"date"`
-	Round       string  `json:"round"`
-	TotalRounds string  `json:"total_rounds"`
-	Class       string  `json:"class"`
-	Results     []Rider `json:"results"`
+	Event       string    `json:"event"`
+	EventCode   string    `json:"event_code"`
+	RaceType    string    `json:"race_type"`
+	City        string    `json:"city"`
+	State       string    `json:"state"`
+	Track       string    `json:"track"`
+	Date        time.Time `json:"date"`
+	Round       string    `json:"round"`
+	TotalRounds string    `json:"total_rounds"`
+	Class       string    `json:"class"`
+	Results     []Rider   `json:"results"`
 }
 
 type Rider struct {

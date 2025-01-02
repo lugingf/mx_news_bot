@@ -89,12 +89,16 @@ var eventLinks = []string{
 
 func generateEventLinks() []string {
 	var eventLinks []string
-	for year := 24; year <= 24; year++ {
-		yearString := fmt.Sprintf("S%d", year)
-		eventID := fmt.Sprintf("%s%02d", yearString, 99)
+	year := 24
+
+	yearString := fmt.Sprintf("S%d", year)
+
+	for i := 5; i <= 85; i = i + 5 {
+		eventID := fmt.Sprintf("%s%02d", yearString, i)
 		eventLink := fmt.Sprintf("https://archives.amasupercross.com/%d/index.html?EventID=%s", year+2000, eventID)
 		eventLinks = append(eventLinks, eventLink)
 	}
+
 	return eventLinks
 }
 
@@ -134,9 +138,11 @@ func main() {
 					pdfLink = toAbsoluteURL(pdfLink, link)
 				}
 
-				// Скачиваем PDF файл без проверки на EventID
-				fmt.Println("Найдена PDF ссылка:", pdfLink)
-				downloadPDF(pdfLink, link)
+				if strings.Contains(pdfLink, "S1F1RES") || strings.Contains(pdfLink, "S2F1RES") {
+					// Скачиваем PDF файл без проверки на EventID
+					fmt.Println("Найдена PDF ссылка:", pdfLink)
+					downloadPDF(pdfLink, link)
+				}
 			}
 		}
 	}
@@ -181,7 +187,7 @@ func downloadPDF(link string, baseURL string) {
 	}
 
 	// Определяем путь для сохранения файла
-	dirPath := filepath.Join("downloads", year, eventID)
+	dirPath := filepath.Join("data", year, eventID)
 	os.MkdirAll(dirPath, os.ModePerm)
 
 	fileName := filepath.Base(parsedURL.Path)

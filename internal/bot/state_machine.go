@@ -7,7 +7,7 @@ import (
 )
 
 type StateController struct {
-	app        *service.Application
+	app        *service.BotBackend
 	log        *slog.Logger
 	userStates map[int64]string
 	mu         sync.Mutex

@@ -8,30 +8,30 @@ import (
 	"mx_news_bot/internal/storage"
 )
 
-type Application struct {
+type BotBackend struct {
 	repo *storage.Repository
 	log  *slog.Logger
 }
 
 // NewApp initializes a new instance of the service layer
-func NewApp(repo *storage.Repository, log *slog.Logger) *Application {
-	return &Application{repo: repo, log: log}
+func NewApp(repo *storage.Repository, log *slog.Logger) *BotBackend {
+	return &BotBackend{repo: repo, log: log}
 }
 
 // GetAllChampionships fetches all championships available
-func (a *Application) GetAllChampionships() ([]models.Championship, error) {
-	championships, err := a.repo.GetAllChampionships()
+func (b *BotBackend) GetAllChampionships() ([]models.Championship, error) {
+	championships, err := b.repo.GetAllChampionships()
 	if err != nil {
-		a.log.Error("Failed to get championships", "error", err)
+		b.log.Error("Failed to get championships", "error", err)
 		return nil, errors.New("could not fetch championships")
 	}
 	return championships, nil
 }
 
-func (a *Application) GetUpcomingEvents() ([]models.Event, error) {
-	events, err := a.repo.GetUpcomingEvents()
+func (b *BotBackend) GetUpcomingEvents() ([]models.Event, error) {
+	events, err := b.repo.GetUpcomingEvents()
 	if err != nil {
-		a.log.Error("Failed to get upcoming events", "error", err)
+		b.log.Error("Failed to get upcoming events", "error", err)
 		return nil, errors.New("could not fetch upcoming events")
 	}
 
@@ -42,10 +42,10 @@ func (a *Application) GetUpcomingEvents() ([]models.Event, error) {
 	return events, nil
 }
 
-func (a *Application) UpdateUserPreference(update storage.UserPreferenceUpdate) error {
-	err := a.repo.UpdateUserPreference(update)
+func (b *BotBackend) UpdateUserPreference(update storage.UserPreferenceUpdate) error {
+	err := b.repo.UpdateUserPreference(update)
 	if err != nil {
-		a.log.Error("Failed to update user preference", "error", err)
+		b.log.Error("Failed to update user preference", "error", err)
 		return errors.New("could not update user preferences")
 	}
 	return nil

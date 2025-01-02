@@ -38,6 +38,9 @@ build-aiparser:
 build-uploader:
 	go build -ldflags "-s -w" -o upload ./cmd/uploader
 
+build-downloader:
+	go build -ldflags "-s -w" -o download ./cmd/downloader
+
 run-tn:
 	# nohup ssh -R 80:localhost:8585 serveo.net > serveo_url.txt 2>&1 &
 	ssh -R 80:localhost:8585 serveo.net > serveo_url.txt

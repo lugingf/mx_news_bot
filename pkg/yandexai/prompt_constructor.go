@@ -11,7 +11,7 @@ const (
 {
   "event": "Event name from data",
   "city": "City from Data",
-  "stadium": "Stadium Name from data",
+  "stadium": "Track Name from data",
   "date": "DD-MM-YYYY",
   "round": "current round number",
   "total_rounds": total rounds amount,
@@ -48,7 +48,7 @@ const (
 type RaceResult struct {
 	Event       string  json:"event"
 	City        string  json:"city"
-	Stadium     string  json:"stadium"
+	Track     string  json:"stadium"
 	Date        string  json:"date"
 	Round       string  json:"round"
 	TotalRounds string  json:"total_rounds"

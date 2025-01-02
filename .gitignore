@@ -6,5 +6,6 @@ parse
 aiparse
 mx_news_bot
 upload
+download
 serveo_url.txt
 .env.local

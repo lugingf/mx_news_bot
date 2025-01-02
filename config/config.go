@@ -28,7 +28,7 @@ type App struct {
 	BotToken     string              `env:"BOT_TOKEN, required"`
 	HookUrl      string              `env:"BOT_HOOK, required"`
 	BotVerbose   bool                `env:"BOT_VERBOSE"`
-	ChampConfigs ChampionshipConfigs `env:",prefix=CHAMP_CONFIGS"`
+	ChampConfigs ChampionshipConfigs `env:",prefix=CHAMP_CONFIGS_"`
 }
 
 type ChampionshipConfigs struct {

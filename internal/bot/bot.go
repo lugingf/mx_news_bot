@@ -13,7 +13,7 @@ import (
 
 type Bot struct {
 	Client          *tele.Bot
-	app             *service.Application
+	app             *service.BotBackend
 	stateController *StateController
 	formatter       *formatter.TgFormatter
 	log             *slog.Logger
@@ -27,7 +27,7 @@ func (b *Bot) Stop() {
 	b.Client.Stop()
 }
 
-func New(cfg *config.Config, app *service.Application, log *slog.Logger) *Bot {
+func New(cfg *config.Config, app *service.BotBackend, log *slog.Logger) *Bot {
 	botClient, err := tele.NewBot(tele.Settings{
 		Token: cfg.App.BotToken,
 		Poller: &tele.Webhook{
