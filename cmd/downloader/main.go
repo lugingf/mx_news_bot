@@ -2,228 +2,179 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
-	"net/url"
 	"os"
-	"path/filepath"
-	"regexp"
 	"strings"
-	"time"
 
 	"github.com/chromedp/chromedp"
 )
 
-var eventLinks = []string{
-	"https://archives.amasupercross.com/2024/index.html?EventID=S2405",
-	"https://archives.amasupercross.com/2023/index.html?EventID=S2305",
-	"https://archives.amasupercross.com/2022/index.html?EventID=S2205",
-	"https://archives.amasupercross.com/2021/index.html?EventID=S2105",
-	"https://archives.amasupercross.com/2024/index.html?EventID=S2410",
-	"https://archives.amasupercross.com/2023/index.html?EventID=S2315",
-	"https://archives.amasupercross.com/2022/index.html?EventID=S2210",
-	"https://archives.amasupercross.com/2021/index.html?EventID=S2110",
-	"https://archives.amasupercross.com/2024/index.html?EventID=S2415",
-	"https://archives.amasupercross.com/2023/index.html?EventID=S2320",
-	"https://archives.amasupercross.com/2022/index.html?EventID=S2215",
-	"https://archives.amasupercross.com/2021/index.html?EventID=S2115",
-	"https://archives.amasupercross.com/2024/index.html?EventID=S2420",
-	"https://archives.amasupercross.com/2023/index.html?EventID=S2325",
-	"https://archives.amasupercross.com/2022/index.html?EventID=S2220",
-	"https://archives.amasupercross.com/2021/index.html?EventID=S2120",
-	"https://archives.amasupercross.com/2024/index.html?EventID=S2425",
-	"https://archives.amasupercross.com/2023/index.html?EventID=S2330",
-	"https://archives.amasupercross.com/2022/index.html?EventID=S2225",
-	"https://archives.amasupercross.com/2021/index.html?EventID=S2125",
-	"https://archives.amasupercross.com/2024/index.html?EventID=S2430",
-	"https://archives.amasupercross.com/2023/index.html?EventID=S2333",
-	"https://archives.amasupercross.com/2022/index.html?EventID=S2230",
-	"https://archives.amasupercross.com/2021/index.html?EventID=S2130",
-	"https://archives.amasupercross.com/2024/index.html?EventID=S2435",
-	"https://archives.amasupercross.com/2023/index.html?EventID=S2335",
-	"https://archives.amasupercross.com/2022/index.html?EventID=S2235",
-	"https://archives.amasupercross.com/2021/index.html?EventID=S2135",
-	"https://archives.amasupercross.com/2024/index.html?EventID=S2440",
-	"https://archives.amasupercross.com/2023/index.html?EventID=S2340",
-	"https://archives.amasupercross.com/2022/index.html?EventID=S2240",
-	"https://archives.amasupercross.com/2021/index.html?EventID=S2140",
-	"https://archives.amasupercross.com/2024/index.html?EventID=S2445",
-	"https://archives.amasupercross.com/2023/index.html?EventID=S2345",
-	"https://archives.amasupercross.com/2022/index.html?EventID=S2245",
-	"https://archives.amasupercross.com/2021/index.html?EventID=S2145",
-	"https://archives.amasupercross.com/2024/index.html?EventID=S2450",
-	"https://archives.amasupercross.com/2023/index.html?EventID=S2350",
-	"https://archives.amasupercross.com/2022/index.html?EventID=S2250",
-	"https://archives.amasupercross.com/2021/index.html?EventID=S2150",
-	"https://archives.amasupercross.com/2024/index.html?EventID=S2455",
-	"https://archives.amasupercross.com/2023/index.html?EventID=S2355",
-	"https://archives.amasupercross.com/2022/index.html?EventID=S2255",
-	"https://archives.amasupercross.com/2021/index.html?EventID=S2155",
-	"https://archives.amasupercross.com/2024/index.html?EventID=S2460",
-	"https://archives.amasupercross.com/2023/index.html?EventID=S2360",
-	"https://archives.amasupercross.com/2022/index.html?EventID=S2260",
-	"https://archives.amasupercross.com/2021/index.html?EventID=S2160",
-	"https://archives.amasupercross.com/2024/index.html?EventID=S2465",
-	"https://archives.amasupercross.com/2023/index.html?EventID=S2365",
-	"https://archives.amasupercross.com/2022/index.html?EventID=S2265",
-	"https://archives.amasupercross.com/2021/index.html?EventID=S2165",
-	"https://archives.amasupercross.com/2024/index.html?EventID=S2470",
-	"https://archives.amasupercross.com/2023/index.html?EventID=S2370",
-	"https://archives.amasupercross.com/2022/index.html?EventID=S2270",
-	"https://archives.amasupercross.com/2021/index.html?EventID=S2170",
-	"https://archives.amasupercross.com/2024/index.html?EventID=S2475",
-	"https://archives.amasupercross.com/2023/index.html?EventID=S2375",
-	"https://archives.amasupercross.com/2022/index.html?EventID=S2275",
-	"https://archives.amasupercross.com/2021/index.html?EventID=S2175",
-	"https://archives.amasupercross.com/2024/index.html?EventID=S2480",
-	"https://archives.amasupercross.com/2023/index.html?EventID=S2380",
-	"https://archives.amasupercross.com/2022/index.html?EventID=S2280",
-	"https://archives.amasupercross.com/2021/index.html?EventID=S2180",
-	"https://archives.amasupercross.com/2024/index.html?EventID=S2485",
-	"https://archives.amasupercross.com/2023/index.html?EventID=S2385",
-	"https://archives.amasupercross.com/2022/index.html?EventID=S2285",
-	"https://archives.amasupercross.com/2021/index.html?EventID=S2185",
+type Downloader struct {
+	BaseURL string
 }
 
-func generateEventLinks() []string {
-	var eventLinks []string
-	year := 24
+type Event struct {
+	Name string `json:"name"`
+	Link string `json:"link"`
+}
 
-	yearString := fmt.Sprintf("S%d", year)
+func NewDownloader(baseURL string) *Downloader {
+	return &Downloader{BaseURL: baseURL}
+}
 
-	for i := 5; i <= 85; i = i + 5 {
-		eventID := fmt.Sprintf("%s%02d", yearString, i)
-		eventLink := fmt.Sprintf("https://archives.amasupercross.com/%d/index.html?EventID=%s", year+2000, eventID)
-		eventLinks = append(eventLinks, eventLink)
+func (d *Downloader) DownloadEventFiles(ctx context.Context, eventName string) error {
+	// Variable to store results
+	var eventsJSON string
+
+	// Step 1: Find the event by name and extract its link
+	err := chromedp.Run(ctx,
+		chromedp.Navigate(d.BaseURL),
+		chromedp.WaitVisible(`table`, chromedp.ByQuery), // Ensure the table is visible
+		chromedp.Evaluate(`JSON.stringify(Array.from(document.querySelectorAll('tbody tr')).map(row => {
+			const nameCell = row.querySelector('td a');
+			return {
+				name: nameCell ? nameCell.textContent.trim() : '',
+				link: nameCell ? nameCell.href : ''
+			};
+		}))`, &eventsJSON),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to extract event links: %w", err)
 	}
 
-	return eventLinks
-}
+	// Parse the JSON result
+	var events []Event
+	if err := json.Unmarshal([]byte(eventsJSON), &events); err != nil {
+		return fmt.Errorf("failed to parse JSON: %w", err)
+	}
 
-func main() {
-	// Создаем контекст для chromedp
-	ctx, cancel := chromedp.NewContext(context.Background())
-	defer cancel()
+	// Find the event with the given name
+	var eventURL string
+	for _, event := range events {
+		if event.Name == eventName {
+			eventURL = event.Link
+			break
+		}
+	}
 
-	// Регулярное выражение для поиска PDF ссылок
-	pdfRegex := regexp.MustCompile(`(?i)href\s*=\s*['"]([^'" ]+\.pdf)['"]`)
+	if eventURL == "" {
+		return fmt.Errorf("no event link found for '%s'", eventName)
+	}
 
-	eventLinks := generateEventLinks()
-	// Посещаем каждую страницу события и ищем PDF ссылки
-	for _, link := range eventLinks {
-		fmt.Println("Посещение страницы события:", link)
+	fmt.Printf("Visiting event URL: %s\n", eventURL)
 
-		var pageContent string
-		// Выполняем chromedp задачи для загрузки страницы и получения ее содержимого
-		err := chromedp.Run(ctx,
-			chromedp.Navigate(link),
-			chromedp.Sleep(5*time.Second), // Ждем, чтобы динамическое содержимое загрузилось
-			chromedp.OuterHTML("html", &pageContent),
-		)
-		fmt.Println("10 секунд прошло")
+	// Step 2: Visit the event page and separate links for "250 Main Event" and "450 Main Event"
+	var links250 []string
+	var links450 []string
+	err = chromedp.Run(ctx,
+		chromedp.Navigate(eventURL),
+		chromedp.WaitVisible(`a`, chromedp.ByQuery), // Ensure the links are visible
+		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => a.textContent.includes('250 Main Event')).map(a => a.href)`, &links250),
+		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => a.textContent.includes('450 Main Event')).map(a => a.href)`, &links450),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to extract download links: %w", err)
+	}
+
+	if len(links250) == 0 && len(links450) == 0 {
+		return fmt.Errorf("no download links found for '%s'", eventName)
+	}
+
+	// Step 3: Download files if the link contains "p=view_race_result"
+	for _, link := range links250 {
+		err := d.download(link, "250", eventName)
 		if err != nil {
-			log.Printf("Не удалось посетить страницу события: %v", err)
-			continue
-		}
-
-		// Ищем ссылки на PDF файлы в полученном содержимом страницы
-		matches := pdfRegex.FindAllStringSubmatch(pageContent, -1)
-		for _, match := range matches {
-			if len(match) > 1 {
-				pdfLink := match[1]
-				// Преобразуем относительные ссылки в абсолютные
-				if !strings.HasPrefix(pdfLink, "http") {
-					pdfLink = toAbsoluteURL(pdfLink, link)
-				}
-
-				if strings.Contains(pdfLink, "S1F1RES") || strings.Contains(pdfLink, "S2F1RES") {
-					// Скачиваем PDF файл без проверки на EventID
-					fmt.Println("Найдена PDF ссылка:", pdfLink)
-					downloadPDF(pdfLink, link)
-				}
-			}
+			return err
 		}
 	}
+
+	for _, link := range links450 {
+		err := d.download(link, "450", eventName)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-// toAbsoluteURL преобразует относительную ссылку в абсолютную на основе базового URL
-func toAbsoluteURL(href string, baseURL string) string {
-	base, err := url.Parse(baseURL)
-	if err != nil {
-		return href
+func (d *Downloader) download(link, class, eventName string) error {
+	if !strings.Contains(link, "p=view_race_result") {
+		fmt.Printf("Skipping link: %s (missing 'p=view_race_result')\n", link)
+		return nil
 	}
-	if u, err := url.Parse(href); err == nil {
-		return base.ResolveReference(u).String()
+
+	pdfURL := fmt.Sprintf("%s&export=pdf", link)
+	fileName := fmt.Sprintf("%s_%s.pdf", eventName, getTitle(class))
+	fmt.Printf("Downloading PDF from: %s\n", pdfURL)
+
+	if err := d.downloadFile(pdfURL, fileName); err != nil {
+		return fmt.Errorf("failed to download file from %s: %w", pdfURL, err)
 	}
-	return href
+
+	fmt.Printf("Successfully downloaded: %s\n", fileName)
+
+	return nil
 }
 
-// загружает PDF файл и сохраняет его в папку downloads/YEAR/EVENTID/
-func downloadPDF(link string, baseURL string) {
-	// Разбираем ссылку для получения информации о файле и папке назначения
-	parsedURL, err := url.Parse(link)
+func (d *Downloader) downloadFile(url, fileName string) error {
+	// Perform HTTP GET request
+	resp, err := http.Get(url)
 	if err != nil {
-		log.Printf("Ошибка при разборе URL: %v", err)
-		return
-	}
-
-	// Извлекаем параметры YEAR и EVENTID из базового URL
-	baseParsedURL, err := url.Parse(baseURL)
-	if err != nil {
-		log.Printf("Ошибка при разборе базового URL: %v", err)
-		return
-	}
-	year := "unknown"
-	eventID := "unknown"
-	if query, err := url.ParseQuery(baseParsedURL.RawQuery); err == nil {
-		if val, ok := query["EventID"]; ok && len(val) > 0 {
-			eventID = val[0]
-			if len(eventID) >= 5 {
-				year = "20" + eventID[1:3]
-			}
-		}
-	}
-
-	// Определяем путь для сохранения файла
-	dirPath := filepath.Join("data", year, eventID)
-	os.MkdirAll(dirPath, os.ModePerm)
-
-	fileName := filepath.Base(parsedURL.Path)
-	savePath := filepath.Join(dirPath, fileName)
-
-	// Загружаем файл
-	resp, err := http.Get(link)
-	if err != nil {
-		log.Printf("Ошибка загрузки файла %s: %v", link, err)
-		return
+		return fmt.Errorf("failed to make GET request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("Ошибка HTTP статуса при загрузке файла %s: %s", link, resp.Status)
-		return
+		return fmt.Errorf("non-OK HTTP status: %s", resp.Status)
 	}
 
-	// Создаем файл
-	out, err := os.Create(savePath)
+	// Create the file
+	out, err := os.Create(fileName)
 	if err != nil {
-		log.Printf("Ошибка создания файла %s: %v", savePath, err)
-		return
+		return fmt.Errorf("failed to create file: %w", err)
 	}
 	defer out.Close()
 
-	// Копируем содержимое ответа в файл
+	// Write the response body to the file
 	_, err = io.Copy(out, resp.Body)
 	if err != nil {
-		log.Printf("Ошибка при сохранении файла %s: %v", savePath, err)
-		return
+		return fmt.Errorf("failed to write to file: %w", err)
 	}
 
-	fmt.Println("Файл успешно загружен:", savePath)
+	return nil
 }
 
-// Этот код использует chromedp для управления браузером и загрузки страниц с выполнением JavaScript.
-// После этого выполняется поиск всех PDF ссылок в загруженном HTML с использованием регулярного выражения.
-// Найденные PDF файлы затем загружаются и сохраняются в соответствующие папки с годом и EventID.
+func getTitle(event string) string {
+	switch event {
+	case "250":
+		return "250_Main_Event"
+	case "450":
+		return "450_Main_Event"
+	}
+
+	return "Unknown_Event"
+}
+
+// Example usage
+func main() {
+	// Create a Chromedp allocator with default options
+	allocatorCtx, cancelAllocator := chromedp.NewExecAllocator(context.Background(), chromedp.DefaultExecAllocatorOptions[:]...)
+	defer cancelAllocator()
+
+	// Create a Chromedp context
+	ctx, cancel := chromedp.NewContext(allocatorCtx)
+	defer cancel()
+
+	downloader := NewDownloader("https://results.supercrosslive.com/events/")
+	eventName := "Anaheim #1"
+
+	if err := downloader.DownloadEventFiles(ctx, eventName); err != nil {
+		fmt.Printf("Error: %v\n", err)
+	} else {
+		fmt.Println("All files downloaded successfully.")
+	}
+}

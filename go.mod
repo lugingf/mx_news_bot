@@ -10,7 +10,6 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.20.5
 	github.com/sethvargo/go-envconfig v1.1.0
-	golang.org/x/net v0.31.0
 	gopkg.in/telebot.v3 v3.3.8
 )
 
