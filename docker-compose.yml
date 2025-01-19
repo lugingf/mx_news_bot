@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: mx
       POSTGRES_PASSWORD: mxpassword
     ports:
-      - "5444:5432"
+      - "6444:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     restart: "${DOCKER_RESTART_POLICY:-unless-stopped}"

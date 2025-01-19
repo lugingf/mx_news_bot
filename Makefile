@@ -21,7 +21,7 @@ up:
 	make migrations
 
 migrations:
-	goose -dir infra/migrations postgres "host=localhost port=5444 user=mx dbname=mx password=mxpassword sslmode=disable" up
+	goose -dir infra/migrations postgres "host=localhost port=6444 user=mx dbname=mx password=mxpassword sslmode=disable" up
 
 clean:
 	docker-compose down --rmi all --volumes

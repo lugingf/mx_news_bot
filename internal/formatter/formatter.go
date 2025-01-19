@@ -33,7 +33,7 @@ func (f *TgFormatter) FormatUpcomingEvents(events []models.Event) string {
 			"📅 *%s*\n🏆 Championship: %s\n📍 Location: %s\n📖 Status: %s\n\n",
 			event.Name,
 			event.ChampionshipName,
-			event.Location,
+			event.Stadium,
 			event.Status,
 		))
 	}

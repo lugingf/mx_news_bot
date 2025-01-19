@@ -43,11 +43,14 @@ type Championship struct {
 
 // Event model representing motocross event details
 type Event struct {
-	ID               int    `db:"event_id"`
-	ChampionshipName int    `db:"championship_name"`
+	ID               int    `db:"id"`
+	ChampionshipName string `db:"championship_name"`
 	Name             string `db:"name"`
+	Classes          string `db:"classes"`
+	Stadium          string `db:"venue_name"`
+	RoundNumber      string `db:"round_number"`
+	TrackID          int    `db:"track_id"`
 	Date             string `db:"event_date"`
-	Location         string `db:"location"`
 	Status           string `db:"event_status"` // upcoming or completed
 }
 

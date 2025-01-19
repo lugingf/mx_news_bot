@@ -13,7 +13,7 @@ type Config struct {
 	App     *App     `env:",prefix=APP_"`
 	Metrics *Metrics `env:",prefix=METRICS_"`
 	Http    *Http    `env:",prefix=HTTP_"`
-	DB      *DB      `env:",prefix=DB_MAIN_"`
+	DB      *DB      `env:",prefix=DB_MAINMX_"`
 	Yandex  *Yandex  `env:",prefix=YANDEX_"`
 }
 
