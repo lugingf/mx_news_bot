@@ -69,58 +69,76 @@ func (d *Downloader) DownloadEventFiles(ctx context.Context, eventName string) e
 	fmt.Printf("Visiting event URL: %s\n", eventURL)
 
 	// Step 2: Visit the event page and separate links for "250 Main Event" and "450 Main Event"
-	links250, links450, err := d.getMainEvents(ctx, eventURL, eventName)
+	races, err := d.getMainEvents(ctx, eventURL)
 	if err != nil {
 		return errors.Wrap(err, "failed to get main events")
 	}
 
 	// Step 3: Download files
-	for _, link := range links250 {
-		err := d.download(link, "250", eventName)
-		if err != nil {
-			return err
-		}
-	}
-
-	for _, link := range links450 {
-		err := d.download(link, "450", eventName)
-		if err != nil {
-			return err
+	for name, links := range races.links {
+		for _, link := range links {
+			err := d.download(link, name, eventName)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
 	return nil
 }
 
-func (d *Downloader) getMainEvents(ctx context.Context, eventURL, eventName string) ([]string, []string, error) {
-	var links250 []string
-	var links450 []string
+type raceSet struct {
+	links map[string][]string
+}
+
+func (d *Downloader) getMainEvents(ctx context.Context, eventURL string) (raceSet, error) {
+	var links250, links250H1, links250H2 []string
+	var links450, links450H1, links450H2 []string
+
 	err := chromedp.Run(ctx,
 		chromedp.Navigate(eventURL),
 		chromedp.WaitVisible(`a`, chromedp.ByQuery), // Ensure the links are visible
 		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => a.textContent.includes('250 Main Event')).map(a => a.href)`, &links250),
+		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /250 Heat (\#?1)/.test(a.textContent)).map(a => a.href)`, &links250H1),
+		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /250 Heat (\#?2)/.test(a.textContent)).map(a => a.href)`, &links250H2),
+
 		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => a.textContent.includes('450 Main Event')).map(a => a.href)`, &links450),
+		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /450 Heat (\#?1)/.test(a.textContent)).map(a => a.href)`, &links450H1),
+		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /450 Heat (\#?2)/.test(a.textContent)).map(a => a.href)`, &links450H2),
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to extract download links: %w", err)
+		return raceSet{}, fmt.Errorf("failed to extract download links: %w", err)
 	}
 
-	if len(links250) == 0 && len(links450) == 0 {
-		return nil, nil, fmt.Errorf("no download links found for '%s'", eventName)
+	result := raceSet{
+		links: map[string][]string{
+			"250 Main_Event": links250,
+			"250 Heat_1":     links250H1,
+			"250 Heat_2":     links250H2,
+			"450 Main_Event": links450,
+			"450 Heat_1":     links450H1,
+			"450 Heat_2":     links450H2,
+		},
 	}
 
-	return links250, links450, nil
+	return result, nil
 }
 
-func (d *Downloader) download(link, class, eventName string) error {
+func (d *Downloader) download(link, race, eventName string) error {
 	// main event link contains "p=view_race_result"
 	if !strings.Contains(link, "p=view_race_result") {
 		fmt.Printf("Skipping link: %s (missing 'p=view_race_result')\n", link)
 		return nil
 	}
 
+	title, err := getTitle(race)
+	if err != nil {
+		return fmt.Errorf("failed to get title: %w", err)
+	}
+
+	fileName := fmt.Sprintf("%s_%s.pdf", eventName, title)
+
 	pdfURL := fmt.Sprintf("%s&export=pdf", link)
-	fileName := fmt.Sprintf("%s_%s.pdf", eventName, getTitle(class))
 	fmt.Printf("Downloading PDF from: %s\n", pdfURL)
 
 	if err := d.downloadFile(pdfURL, eventName, fileName); err != nil {
@@ -166,15 +184,13 @@ func (d *Downloader) downloadFile(url, eventDir, fileName string) error {
 	return nil
 }
 
-func getTitle(event string) string {
-	switch event {
-	case "250":
-		return "250_MainEvent"
-	case "450":
-		return "450_MainEvent"
+func getTitle(event string) (string, error) {
+	parts := strings.Split(event, " ")
+	if len(parts) < 2 {
+		return "", errors.New("wrong race name")
 	}
 
-	return "UnknownEvent"
+	return fmt.Sprintf("%s_%s", parts[0], parts[1]), nil
 }
 
 // Example usage

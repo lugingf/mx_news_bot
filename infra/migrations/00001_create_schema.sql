@@ -107,7 +107,7 @@ CREATE TABLE ama_supercross_results
     bike            VARCHAR(50) NOT NULL DEFAULT '',
     position        INT         NOT NULL,
     points_awarded  INT,
-    UNIQUE (championship_id, event_code, event_name, class, round, rider_id)
+    UNIQUE (championship_id, event_code, race_type, event_name, class, round, rider_id)
 );
 
 -- Table 6: AMA Pro Motocross Results

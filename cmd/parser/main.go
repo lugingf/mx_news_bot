@@ -27,7 +27,11 @@ const (
 	championshipProMX = "Pro Motocross Championship"
 )
 
-const raceTypeMain = "MainEvent"
+const (
+	raceTypeMain  = "Main Event"
+	raceTypeHeat1 = "Heat 1"
+	raceTypeHeat2 = "Heat 2"
+)
 
 const (
 	dataDir    = "./data/2025"
@@ -38,6 +42,7 @@ var dryRun bool
 
 func main() {
 	dryRun = false
+
 	cfg, err := config.New(context.Background())
 	if err != nil {
 		slog.Error("Config initialization failed", "error", err)
@@ -112,10 +117,23 @@ func getRoundNumber(fileName string) string {
 	return "0"
 }
 
+func getRaceType(fileName string) string {
+	switch {
+	case strings.Contains(fileName, "Main_Event"):
+		return raceTypeMain
+	case strings.Contains(fileName, "Heat_1"):
+		return raceTypeHeat1
+	case strings.Contains(fileName, "Heat_2"):
+		return raceTypeHeat2
+	}
+
+	return "Undefined"
+}
+
 func getRaceResult(pdfFile string, file io.Reader) (models.RaceResult, error) {
 	var raceResult models.RaceResult
 
-	raceResult.RaceType = raceTypeMain
+	raceResult.RaceType = getRaceType(pdfFile)
 	raceResult.ChampName = championshipSX
 	raceResult.Round = getRoundNumber(pdfFile)
 
@@ -151,7 +169,6 @@ func getEventCode(date time.Time, name, roundNum string) (string, error) {
 	roundInt, err := strconv.Atoi(roundNum)
 	if err != nil {
 		return "", errors.Wrapf(err, "parse round number %s", roundNum)
-		//roundInt = 1
 	}
 	rN := roundInt * 5
 	if rN > 85 {
