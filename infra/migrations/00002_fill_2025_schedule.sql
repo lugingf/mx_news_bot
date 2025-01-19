@@ -109,6 +109,23 @@ SET event_code = CASE
                      ELSE NULL -- Default case if necessary
 END;
 
+UPDATE events
+SET name = subquery.new_name
+FROM (
+         SELECT
+             e.id AS event_id,
+             CASE
+                 WHEN COUNT(*) OVER (PARTITION BY t.city) > 1 THEN CONCAT(t.city, ' #', ROW_NUMBER() OVER (PARTITION BY t.city ORDER BY e.id))
+                 ELSE t.city
+                 END AS new_name
+         FROM
+             events e
+                 JOIN
+             tracks t ON e.track_id = t.id
+     ) subquery
+WHERE events.id = subquery.event_id;
+
+
 
 
 -- +goose Down

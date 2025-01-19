@@ -5,26 +5,23 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/pkg/errors"
 	"io"
 	"log"
 	"log/slog"
+	"mx_news_bot/internal/pdfconverter"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"mx_news_bot/config"
 	"mx_news_bot/internal/models"
-	"mx_news_bot/internal/pdfconverter"
 	"mx_news_bot/internal/storage"
 )
 
 const (
-	class450       = "450SX"
-	class250       = "250SX"
 	codeClass450SX = "S1"
 	codeClass250SX = "S2"
 
@@ -50,17 +47,14 @@ const (
 const raceTypeMain = "MainEvent"
 
 const (
-	dataDir    = "./data/2025"
+	dataDir    = "./data"
 	outputFile = "output/result.txt"
 )
 
 // Main events results
 var fileSet = []string{"Anaheim #1_250_Main_Event.pdf", "Anaheim #1_450_Main_Event.pdf"}
 
-var dryRun bool
-
 func main() {
-	dryRun = false
 	cfg, err := config.New(context.Background())
 	if err != nil {
 		slog.Error("Config initialization failed", "error", err)
@@ -77,7 +71,7 @@ func main() {
 
 	repository := storage.New(dbm, logger)
 
-	files, err := collectFiles(dataDir, []string{})
+	files, err := collectFiles(dataDir, fileSet)
 	logger.Info("Files collected", "files", files)
 	if err != nil {
 		log.Fatal(err)
@@ -109,11 +103,6 @@ func main() {
 		// debug
 		outputJSON(raceResult)
 
-		if dryRun {
-			file.Close()
-			continue
-		}
-
 		err = repository.UploadRaceResultsSMX(raceResult)
 		if err != nil {
 			logger.Error("Cant upload race results from file", "file", pdfFile, "error", err)
@@ -126,24 +115,19 @@ func main() {
 
 func getRaceResult(pdfFile string, file io.Reader) (models.RaceResult, error) {
 	var raceResult models.RaceResult
-
-	raceResult.RaceType = raceTypeMain
-	raceResult.ChampName = championshipSX
-	if strings.Contains(pdfFile, "Anaheim") {
-		raceResult.Round = "1"
+	if strings.Contains(pdfFile, codeRaceMainEvent) {
+		raceResult.RaceType = raceTypeMain
 	}
-	if strings.Contains(pdfFile, "San Diego") {
-		raceResult.Round = "2"
+	if strings.Contains(pdfFile, codeClass450SX) || strings.Contains(pdfFile, codeClass250SX) {
+		raceResult.Event = championshipSX
 	}
-	raceResult.TotalRounds = "17"
 
 	scanner := bufio.NewScanner(file)
 	err := parseText(scanner, &raceResult)
 	if err != nil {
 		return models.RaceResult{}, errors.Wrapf(err, "parse race result %s", pdfFile)
 	}
-
-	raceResult.EventCode, err = getEventCode(raceResult.Date, raceResult.ChampName, raceResult.Round)
+	raceResult.EventCode, err = getEventCode(raceResult.Date, raceResult.Event, raceResult.Round)
 	if err != nil {
 		return models.RaceResult{}, errors.Wrapf(err, "cant get eventCode %s", pdfFile)
 	}
@@ -166,8 +150,7 @@ func getEventCode(date time.Time, name, roundNum string) (string, error) {
 
 	roundInt, err := strconv.Atoi(roundNum)
 	if err != nil {
-		//return "", errors.Wrapf(err, "parse round number %s", roundNum)
-		roundInt = 1
+		return "", errors.Wrapf(err, "parse round number %s", roundNum)
 	}
 	rN := roundInt * 5
 	if rN > 85 {
@@ -194,11 +177,8 @@ func collectFiles(baseDir string, fileNames []string) ([]string, error) {
 		if !info.IsDir() {
 			if _, exists := fileNameMap[info.Name()]; exists {
 				filePaths = append(filePaths, path)
-			} else if len(fileNames) == 0 {
-				filePaths = append(filePaths, path)
 			}
 		}
-
 		return nil
 	})
 
@@ -210,56 +190,47 @@ func collectFiles(baseDir string, fileNames []string) ([]string, error) {
 }
 
 // Monster Energy AMA Supercross results parser
-
 func parseText(scanner *bufio.Scanner, result *models.RaceResult) error {
-	parsers := map[int]func(string, *models.RaceResult) error{
-		1: parseCityTrack,
-		2: parseDate,
-		4: parseClass,
-	}
-
 	lineIndex := 0
-	ridersParsed := false // Флаг, чтобы избежать лишних проверок
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		if parser, ok := parsers[lineIndex]; ok && !ridersParsed {
-			if err := parser(line, result); err != nil {
-				return err
+		switch lineIndex {
+		case 1:
+			result.City = titleCaseWithExceptions(strings.ToLower(line))
+		case 2:
+			if parts := strings.SplitN(line, " - ", 2); len(parts) == 2 {
+				result.Track = titleCaseWithExceptions(strings.ToLower(parts[0]))
+				if parts := strings.SplitN(line, ", ", 2); len(parts) == 2 {
+					result.State = parts[1]
+				}
 			}
+
+		case 3:
+			if parts := strings.SplitN(line, " - ", 2); len(parts) == 2 {
+				_, err := fmt.Sscanf(parts[0], "ROUND %s OF %s", &result.Round, &result.TotalRounds)
+				if err != nil {
+					return errors.Wrapf(err, "can't scan string %s", parts[0])
+				}
+
+				layout := "January 2, 2006"
+				date, err := time.Parse(layout, capitalizeMonth(strings.ToLower(parts[1])))
+				if err != nil {
+					return errors.Wrap(err, "failed to parse date")
+				}
+				result.Date = date
+			}
+
+		case 4:
+			result.Class = line
 		}
 
-		// Начинаем парсинг гонщиков только один раз
-		if !ridersParsed && strings.Contains(line, "POS") {
-			fmt.Println("parsing riders")
+		if strings.HasPrefix(line, "POS.") {
 			parseRiders(scanner, &result.Results)
-			ridersParsed = true
 		}
 
 		lineIndex++
 	}
 
-	return nil
-}
-
-func parseCityTrack(line string, result *models.RaceResult) error {
-	// Example: "Anaheim #1"
-	result.EventName = titleCaseWithExceptions(strings.ToLower(line))
-	return nil
-}
-
-func parseDate(line string, result *models.RaceResult) error {
-	// Example: "Jan 11, 2025"
-	layout := "Jan 2, 2006"
-	date, err := time.Parse(layout, capitalizeMonth(strings.ToLower(line)))
-	if err != nil {
-		return errors.Wrap(err, "failed to parse date")
-	}
-	result.Date = date
-	return nil
-}
-
-func parseClass(line string, result *models.RaceResult) error {
-	result.Class = strings.Split(line, " ")[0] + "SX"
 	return nil
 }
 
@@ -285,8 +256,7 @@ func titleCaseWithExceptions(input string) string {
 func parseRiders(scanner *bufio.Scanner, results *[]models.Rider) {
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "Generated by") {
-			fmt.Println("End of table")
+		if line == "" || strings.HasPrefix(line, "Humidity:") {
 			break
 		}
 

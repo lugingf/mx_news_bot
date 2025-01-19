@@ -10,7 +10,8 @@ type User struct {
 }
 
 type RaceResult struct {
-	Event       string    `json:"event"`
+	ChampName   string    `json:"champ_name"`
+	EventName   string    `json:"event_name"`
 	EventCode   string    `json:"event_code"`
 	RaceType    string    `json:"race_type"`
 	City        string    `json:"city"`

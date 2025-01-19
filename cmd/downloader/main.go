@@ -14,6 +14,7 @@ import (
 
 type Downloader struct {
 	BaseURL string
+	DataDir string
 }
 
 type Event struct {
@@ -21,8 +22,8 @@ type Event struct {
 	Link string `json:"link"`
 }
 
-func NewDownloader(baseURL string) *Downloader {
-	return &Downloader{BaseURL: baseURL}
+func NewDownloader(baseURL, dataDir string) *Downloader {
+	return &Downloader{BaseURL: baseURL, DataDir: dataDir}
 }
 
 func (d *Downloader) DownloadEventFiles(ctx context.Context, eventName string) error {
@@ -133,7 +134,7 @@ func (d *Downloader) downloadFile(url, fileName string) error {
 	}
 
 	// Create the file
-	out, err := os.Create(fileName)
+	out, err := os.Create(fmt.Sprintf("%s/%s", d.DataDir, fileName))
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
@@ -151,12 +152,12 @@ func (d *Downloader) downloadFile(url, fileName string) error {
 func getTitle(event string) string {
 	switch event {
 	case "250":
-		return "250_Main_Event"
+		return "250_MainEvent"
 	case "450":
-		return "450_Main_Event"
+		return "450_MainEvent"
 	}
 
-	return "Unknown_Event"
+	return "UnknownEvent"
 }
 
 // Example usage
@@ -169,8 +170,16 @@ func main() {
 	ctx, cancel := chromedp.NewContext(allocatorCtx)
 	defer cancel()
 
-	downloader := NewDownloader("https://results.supercrosslive.com/events/")
+	downloader := NewDownloader("https://results.supercrosslive.com/events/", "data/2025")
 	eventName := "Anaheim #1"
+
+	if err := downloader.DownloadEventFiles(ctx, eventName); err != nil {
+		fmt.Printf("Error: %v\n", err)
+	} else {
+		fmt.Println("All files downloaded successfully.")
+	}
+
+	eventName = "San Diego"
 
 	if err := downloader.DownloadEventFiles(ctx, eventName); err != nil {
 		fmt.Printf("Error: %v\n", err)

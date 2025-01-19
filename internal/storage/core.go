@@ -78,7 +78,7 @@ func (r *Repository) UpdateUserPreference(update UserPreferenceUpdate) error {
 	return nil
 }
 
-func (r *Repository) UploadRaceResults(result models.RaceResult) error {
+func (r *Repository) UploadRaceResultsSMX(result models.RaceResult) error {
 	tx, err := r.db.Beginx()
 	if err != nil {
 		return errors.Wrap(err, "failed to begin transaction")
@@ -96,7 +96,7 @@ func (r *Repository) UploadRaceResults(result models.RaceResult) error {
 
 	// Insert championship if not exists
 	championshipID := 0
-	err = tx.Get(&championshipID, insertChampionshipQuery, result.Event, time.Now().Year(), pq.Array([]string{result.Class}))
+	err = tx.Get(&championshipID, insertChampionshipQuery, result.ChampName, time.Now().Year(), pq.Array([]string{result.Class}))
 	if err != nil {
 		return errors.Wrap(err, "failed to insert championship")
 	}
@@ -132,7 +132,7 @@ func (r *Repository) UploadRaceResults(result models.RaceResult) error {
 
 		// Insert race result
 		_, err = tx.Exec(insertRaceResultQuery,
-			championshipID, result.EventCode, result.RaceType, result.Class,
+			championshipID, result.EventCode, result.EventName, result.RaceType, result.Class,
 			result.Round, riderID, riderTeamID, rider.RiderNumber, rider.Bike,
 			rider.Position)
 		if err != nil {

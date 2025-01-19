@@ -61,16 +61,16 @@ const (
 	insertEventQuery = `
 		INSERT INTO events (championship_id, round_number, track_id, event_code, event_date, venue_name, event_status)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		ON CONFLICT (championship_id, round_number, event_code, event_date) DO NOTHING
+		ON CONFLICT (championship_id, round_number, event_code, event_date) DO UPDATE SET event_status = $7
 		RETURNING event_code;
 	`
 
 	insertRaceResultQuery = `
 		INSERT INTO ama_supercross_results (
-			championship_id, event_code, race_type, class, round, 
+			championship_id, event_code, event_name, race_type, class, round, 
 			rider_id, rider_team_id, rider_number, bike, position
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		ON CONFLICT DO NOTHING;
 	`
 )

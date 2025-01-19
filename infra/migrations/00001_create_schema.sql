@@ -48,15 +48,16 @@ CREATE TABLE events
 (
     id               SERIAL PRIMARY KEY,
     championship_id  INT REFERENCES championships (id),
+    name             VARCHAR(100),
     classes          VARCHAR(255),
     venue_name       VARCHAR(100),
-    round_number     INT  NOT NULL, -- Round number in the championship
+    round_number     INT         NOT NULL, -- Round number in the championship
     track_id         INT,
-    event_date       DATE NOT NULL,
-    event_format     VARCHAR(50),   -- E.g., "Triple Crown", "Standard",
+    event_date       DATE        NOT NULL,
+    event_format     VARCHAR(50),          -- E.g., "Triple Crown", "Standard",
     venue_info_url   VARCHAR(255),
-    surface_override VARCHAR(50),   -- Optional: specific surface type for this event
-    event_code   VARCHAR(10) NOT NULL DEFAULT '',
+    surface_override VARCHAR(50),          -- Optional: specific surface type for this event
+    event_code       VARCHAR(10) NOT NULL DEFAULT '',
     UNIQUE (championship_id, round_number, event_code, event_date)
 );
 
@@ -70,19 +71,6 @@ ALTER TABLE events
 ALTER TABLE events
     ADD COLUMN event_status VARCHAR(50) NOT NULL DEFAULT 'upcoming';
 -- Event status (e.g., "upcoming", "result_pending", "downloaded", "completed")
-
-
--- Table 6: AMA Pro Motocross Results
-CREATE TABLE ama_promotocross_results
-(
-    id              SERIAL PRIMARY KEY,
-    championship_id INT REFERENCES championships (id),
-    moto_number     INT NOT NULL,                    -- 1 or 2
-    rider_id        INT REFERENCES riders (id),
-    rider_team_id   INT REFERENCES rider_teams (id), -- Optional, for event-specific team tracking
-    position        INT NOT NULL,
-    points_awarded  INT NOT NULL
-);
 
 -- {
 --   "event": "monster energy ama supercross",
@@ -109,6 +97,7 @@ CREATE TABLE ama_supercross_results
     id              SERIAL PRIMARY KEY,
     championship_id INT REFERENCES championships (id),
     event_code      VARCHAR(10) NOT NULL DEFAULT 0000,
+    event_name      VARCHAR(10),
     race_type       VARCHAR(50) NOT NULL,            -- "Heat", "LCQ", "Main Event", or "Triple Crown"
     class           VARCHAR(50) NOT NULL DEFAULT '',
     round           VARCHAR(50) NOT NULL DEFAULT '',
@@ -117,8 +106,23 @@ CREATE TABLE ama_supercross_results
     rider_number    VARCHAR(50) NOT NULL DEFAULT '',
     bike            VARCHAR(50) NOT NULL DEFAULT '',
     position        INT         NOT NULL,
-    points_awarded  INT
+    points_awarded  INT,
+    UNIQUE (championship_id, event_code, event_name, class, round, rider_id)
 );
+
+-- Table 6: AMA Pro Motocross Results
+CREATE TABLE ama_promotocross_results
+(
+    id              SERIAL PRIMARY KEY,
+    championship_id INT REFERENCES championships (id),
+    moto_number     INT NOT NULL,                    -- 1 or 2
+    rider_id        INT REFERENCES riders (id),
+    rider_team_id   INT REFERENCES rider_teams (id), -- Optional, for event-specific team tracking
+    position        INT NOT NULL,
+    points_awarded  INT NOT NULL
+);
+
+
 
 -- Table 8: MXGP Results
 CREATE TABLE mxgp_results
