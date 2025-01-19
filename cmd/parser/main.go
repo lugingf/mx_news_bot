@@ -23,26 +23,6 @@ import (
 )
 
 const (
-	class450       = "450SX"
-	class250       = "250SX"
-	codeClass450SX = "S1"
-	codeClass250SX = "S2"
-
-	codeRaceMainEvent  = "F1"
-	codeRaceQual       = "Q%d"
-	codeRaceLastChance = "L1"
-	codeRaceHeat       = "H%d"
-
-	codeResult               = "RES"
-	codeIndivSeg             = "IND"
-	codeIndivLap             = "RID"
-	codeLapChart             = "LAP"
-	codeLineUp               = "LINEUP"
-	codeBestLapTimes         = "OVR"
-	codeBestLapTimesCombined = "COVR"
-)
-
-const (
 	championshipSX    = "Monster Energy AMA Supercross"
 	championshipProMX = "Pro Motocross Championship"
 )
@@ -53,9 +33,6 @@ const (
 	dataDir    = "./data/2025"
 	outputFile = "output/result.txt"
 )
-
-// Main events results
-var fileSet = []string{"Anaheim #1_250_Main_Event.pdf", "Anaheim #1_450_Main_Event.pdf"}
 
 var dryRun bool
 
@@ -124,21 +101,28 @@ func main() {
 
 }
 
+// FIXME do it right
+func getRoundNumber(fileName string) string {
+	if strings.Contains(fileName, "Anaheim") {
+		return "1"
+	}
+	if strings.Contains(fileName, "San Diego") {
+		return "2"
+	}
+	return "0"
+}
+
 func getRaceResult(pdfFile string, file io.Reader) (models.RaceResult, error) {
 	var raceResult models.RaceResult
 
 	raceResult.RaceType = raceTypeMain
 	raceResult.ChampName = championshipSX
-	if strings.Contains(pdfFile, "Anaheim") {
-		raceResult.Round = "1"
-	}
-	if strings.Contains(pdfFile, "San Diego") {
-		raceResult.Round = "2"
-	}
+	raceResult.Round = getRoundNumber(pdfFile)
+
 	raceResult.TotalRounds = "17"
 
 	scanner := bufio.NewScanner(file)
-	err := parseText(scanner, &raceResult)
+	err := parseTable(scanner, &raceResult)
 	if err != nil {
 		return models.RaceResult{}, errors.Wrapf(err, "parse race result %s", pdfFile)
 	}
@@ -166,8 +150,8 @@ func getEventCode(date time.Time, name, roundNum string) (string, error) {
 
 	roundInt, err := strconv.Atoi(roundNum)
 	if err != nil {
-		//return "", errors.Wrapf(err, "parse round number %s", roundNum)
-		roundInt = 1
+		return "", errors.Wrapf(err, "parse round number %s", roundNum)
+		//roundInt = 1
 	}
 	rN := roundInt * 5
 	if rN > 85 {
@@ -211,7 +195,7 @@ func collectFiles(baseDir string, fileNames []string) ([]string, error) {
 
 // Monster Energy AMA Supercross results parser
 
-func parseText(scanner *bufio.Scanner, result *models.RaceResult) error {
+func parseTable(scanner *bufio.Scanner, result *models.RaceResult) error {
 	parsers := map[int]func(string, *models.RaceResult) error{
 		1: parseCityTrack,
 		2: parseDate,
@@ -242,7 +226,6 @@ func parseText(scanner *bufio.Scanner, result *models.RaceResult) error {
 }
 
 func parseCityTrack(line string, result *models.RaceResult) error {
-	// Example: "Anaheim #1"
 	result.EventName = titleCaseWithExceptions(strings.ToLower(line))
 	return nil
 }
@@ -304,7 +287,7 @@ func parseRiders(scanner *bufio.Scanner, results *[]models.Rider) {
 		*results = append(*results, models.Rider{
 			Position:    strings.TrimSpace(fields["POS"]),
 			RiderNumber: strings.TrimSpace(fields["NUMBER"]),
-			Rider:       strings.TrimSpace(fields["RIDER"]),
+			Rider:       strings.TrimSuffix(strings.TrimSpace(fields["RIDER"]), " (HS)"),
 			Hometown:    strings.TrimSpace(fields["HOMETOWN"]),
 			Bike:        strings.TrimSpace(fields["BIKE"]),
 			Team:        strings.TrimSpace(team),

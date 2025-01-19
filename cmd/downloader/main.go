@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/pkg/errors"
 	"io"
 	"net/http"
 	"os"
@@ -68,23 +69,12 @@ func (d *Downloader) DownloadEventFiles(ctx context.Context, eventName string) e
 	fmt.Printf("Visiting event URL: %s\n", eventURL)
 
 	// Step 2: Visit the event page and separate links for "250 Main Event" and "450 Main Event"
-	var links250 []string
-	var links450 []string
-	err = chromedp.Run(ctx,
-		chromedp.Navigate(eventURL),
-		chromedp.WaitVisible(`a`, chromedp.ByQuery), // Ensure the links are visible
-		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => a.textContent.includes('250 Main Event')).map(a => a.href)`, &links250),
-		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => a.textContent.includes('450 Main Event')).map(a => a.href)`, &links450),
-	)
+	links250, links450, err := d.getMainEvents(ctx, eventURL, eventName)
 	if err != nil {
-		return fmt.Errorf("failed to extract download links: %w", err)
+		return errors.Wrap(err, "failed to get main events")
 	}
 
-	if len(links250) == 0 && len(links450) == 0 {
-		return fmt.Errorf("no download links found for '%s'", eventName)
-	}
-
-	// Step 3: Download files if the link contains "p=view_race_result"
+	// Step 3: Download files
 	for _, link := range links250 {
 		err := d.download(link, "250", eventName)
 		if err != nil {
@@ -102,7 +92,28 @@ func (d *Downloader) DownloadEventFiles(ctx context.Context, eventName string) e
 	return nil
 }
 
+func (d *Downloader) getMainEvents(ctx context.Context, eventURL, eventName string) ([]string, []string, error) {
+	var links250 []string
+	var links450 []string
+	err := chromedp.Run(ctx,
+		chromedp.Navigate(eventURL),
+		chromedp.WaitVisible(`a`, chromedp.ByQuery), // Ensure the links are visible
+		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => a.textContent.includes('250 Main Event')).map(a => a.href)`, &links250),
+		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => a.textContent.includes('450 Main Event')).map(a => a.href)`, &links450),
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to extract download links: %w", err)
+	}
+
+	if len(links250) == 0 && len(links450) == 0 {
+		return nil, nil, fmt.Errorf("no download links found for '%s'", eventName)
+	}
+
+	return links250, links450, nil
+}
+
 func (d *Downloader) download(link, class, eventName string) error {
+	// main event link contains "p=view_race_result"
 	if !strings.Contains(link, "p=view_race_result") {
 		fmt.Printf("Skipping link: %s (missing 'p=view_race_result')\n", link)
 		return nil
@@ -112,7 +123,7 @@ func (d *Downloader) download(link, class, eventName string) error {
 	fileName := fmt.Sprintf("%s_%s.pdf", eventName, getTitle(class))
 	fmt.Printf("Downloading PDF from: %s\n", pdfURL)
 
-	if err := d.downloadFile(pdfURL, fileName); err != nil {
+	if err := d.downloadFile(pdfURL, eventName, fileName); err != nil {
 		return fmt.Errorf("failed to download file from %s: %w", pdfURL, err)
 	}
 
@@ -121,7 +132,13 @@ func (d *Downloader) download(link, class, eventName string) error {
 	return nil
 }
 
-func (d *Downloader) downloadFile(url, fileName string) error {
+func (d *Downloader) downloadFile(url, eventDir, fileName string) error {
+	// Ensure the directory exists
+	err := os.MkdirAll(fmt.Sprintf("%s/%s", d.DataDir, eventDir), os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
 	// Perform HTTP GET request
 	resp, err := http.Get(url)
 	if err != nil {
@@ -134,7 +151,7 @@ func (d *Downloader) downloadFile(url, fileName string) error {
 	}
 
 	// Create the file
-	out, err := os.Create(fmt.Sprintf("%s/%s", d.DataDir, fileName))
+	out, err := os.Create(fmt.Sprintf("%s/%s/%s", d.DataDir, eventDir, fileName))
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
@@ -171,19 +188,13 @@ func main() {
 	defer cancel()
 
 	downloader := NewDownloader("https://results.supercrosslive.com/events/", "data/2025")
-	eventName := "Anaheim #1"
+	eventList := []string{"Anaheim 1", "San Diego"}
 
-	if err := downloader.DownloadEventFiles(ctx, eventName); err != nil {
-		fmt.Printf("Error: %v\n", err)
-	} else {
-		fmt.Println("All files downloaded successfully.")
-	}
-
-	eventName = "San Diego"
-
-	if err := downloader.DownloadEventFiles(ctx, eventName); err != nil {
-		fmt.Printf("Error: %v\n", err)
-	} else {
-		fmt.Println("All files downloaded successfully.")
+	for _, eventName := range eventList {
+		if err := downloader.DownloadEventFiles(ctx, eventName); err != nil {
+			fmt.Printf("Error in eventName %s: %v\n", eventName, err)
+		} else {
+			fmt.Printf("All files downloaded successfully for event name  %s.\n", eventName)
+		}
 	}
 }
