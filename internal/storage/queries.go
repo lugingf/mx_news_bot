@@ -7,7 +7,39 @@ const (
 		WHERE tg_user_id = $1;
 `
 	sqlGetAllChampionships = `SELECT * FROM championships`
-	sqlGetUpcomingEvents   = `
+
+	sqlGetSXEventResultByID = `
+SELECT 
+    championships.championship_name AS champ_name,
+    events.name AS event_name,
+    events.event_code,
+    a.race_type,
+    tracks.city,
+    tracks.state,
+    tracks.name AS track,
+    events.event_date,
+    events.round_number AS round,
+    (select count(*) from events where championship_id = 1) as total_rounds,
+    a.class,
+    a.position,
+    a.rider_number,
+    riders.full_name AS rider,
+    a.bike,
+    rider_teams.team_name AS team
+FROM ama_supercross_results a
+JOIN events ON events.event_code = a.event_code
+JOIN tracks ON events.track_id = tracks.id
+JOIN championships ON events.championship_id = championships.id
+JOIN riders ON riders.id = a.rider_id
+JOIN rider_teams ON a.rider_team_id = rider_teams.id
+WHERE a.championship_id = 1
+  AND a.race_type = 'Main Event'
+  AND events.id = $1
+ORDER BY a.class DESC, events.round_number, a.position;
+
+`
+
+	sqlGetUpcomingEvents = `
 SELECT
     e.id,
     c.championship_name,
@@ -29,6 +61,29 @@ WHERE
 ORDER BY
     e.event_date ASC;
 	`
+
+	sqlGetCompletedEvents = `
+SELECT
+    e.id,
+    c.championship_name,
+    e.name,
+    e.classes,
+    e.venue_name,
+    e.round_number,
+    e.track_id,
+    e.event_date,
+    event_status
+FROM
+    events e
+        JOIN
+    championships c ON e.championship_id = c.id
+        LEFT JOIN
+    tracks t ON e.track_id = t.id
+WHERE
+    e.event_status = 'completed'
+ORDER BY
+    e.event_date DESC;
+`
 	sqlUpdateUserPreference = `UPDATE user_preferences SET`
 )
 

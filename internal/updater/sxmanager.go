@@ -1,6 +1,7 @@
 package updater
 
 import (
+	"context"
 	"github.com/pkg/errors"
 
 	"mx_news_bot/config"
@@ -29,7 +30,8 @@ func (m *SXManager) Manage() error {
 		return errors.Wrap(err, "checking results")
 	}
 
-	err = m.dwn.DownloadFiles(files)
+	ctx := context.Background()
+	err = m.dwn.DownloadEventFiles(ctx, "Event Name")
 	if err != nil {
 		return errors.Wrap(err, "downloading files")
 	}
@@ -55,8 +57,8 @@ func (m *SXManager) checkResults() ([]string, error) {
 	return m.ch.CheckResults()
 }
 
-func (m *SXManager) downloadFiles(files []string) error {
-	return m.dwn.DownloadFiles(files)
+func (m *SXManager) downloadFiles(ctx context.Context, eventName string) error {
+	return m.dwn.DownloadEventFiles(ctx, eventName)
 }
 
 func (m *SXManager) parseFiles(files []string) ([]models.RaceResult, error) {

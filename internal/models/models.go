@@ -43,15 +43,15 @@ type Championship struct {
 
 // Event model representing motocross event details
 type Event struct {
-	ID               int    `db:"id"`
-	ChampionshipName string `db:"championship_name"`
-	Name             string `db:"name"`
-	Classes          string `db:"classes"`
-	Stadium          string `db:"venue_name"`
-	RoundNumber      string `db:"round_number"`
-	TrackID          int    `db:"track_id"`
-	Date             string `db:"event_date"`
-	Status           string `db:"event_status"` // upcoming or completed
+	ID               int       `db:"id"`
+	ChampionshipName string    `db:"championship_name"`
+	Name             string    `db:"name"`
+	Classes          string    `db:"classes"`
+	Stadium          string    `db:"venue_name"`
+	RoundNumber      string    `db:"round_number"`
+	TrackID          int       `db:"track_id"`
+	Date             time.Time `db:"event_date"`
+	Status           string    `db:"event_status"` // upcoming or completed
 }
 
 // UserPreference model representing user preferences such as default championship and notifications
@@ -60,14 +60,4 @@ type UserPreference struct {
 	TGUserID              int64 `db:"tg_user_id"`
 	DefaultChampionshipID *int  `db:"default_championship_id"`
 	NotificationsEnabled  bool  `db:"notifications_enabled"`
-}
-
-// EventResult model representing motocross event results for riders
-type EventResult struct {
-	ResultID      int    `db:"result_id"`
-	EventID       int    `db:"event_id"`
-	ClassName     string `db:"class_name"`
-	RiderID       int    `db:"rider_id"`
-	Position      int    `db:"position"`
-	PointsAwarded int    `db:"points_awarded"`
 }

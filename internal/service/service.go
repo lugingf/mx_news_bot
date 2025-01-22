@@ -41,6 +41,40 @@ func (b *BotBackend) GetUpcomingEvents() ([]models.Event, error) {
 
 	return events, nil
 }
+func (b *BotBackend) GetCompletedEvents() ([]models.Event, error) {
+	events, err := b.repo.GetCompletedEvents()
+	if err != nil {
+		b.log.Error("Failed to get completed events", "error", err)
+		return nil, errors.New("could not fetch completed events")
+	}
+
+	if len(events) == 0 {
+		return nil, nil
+	}
+
+	return events, nil
+}
+
+func (b *BotBackend) GetEventResultByID(eventID int) ([]models.RaceResult, error) {
+	classes, err := b.repo.GetEventResultByID(eventID)
+	if err != nil {
+		b.log.Error("Failed to get event result", "error", err)
+		return nil, errors.New("could not fetch event result")
+	}
+
+	if classes == nil {
+		return nil, errors.New("no data found")
+	}
+
+	b.log.Info("Event result fetched", "classes", len(classes))
+	result := make([]models.RaceResult, 0, len(classes))
+
+	for _, class := range classes {
+		result = append(result, class)
+	}
+
+	return result, nil
+}
 
 func (b *BotBackend) UpdateUserPreference(update storage.UserPreferenceUpdate) error {
 	err := b.repo.UpdateUserPreference(update)

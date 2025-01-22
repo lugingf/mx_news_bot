@@ -52,6 +52,81 @@ func (r *Repository) GetUpcomingEvents() ([]models.Event, error) {
 	return events, nil
 }
 
+func (r *Repository) GetEventResultByID(eventID int) (map[string]models.RaceResult, error) {
+	result := make(map[string]models.RaceResult)
+
+	rows, err := r.db.Query(sqlGetSXEventResultByID, eventID)
+	if err != nil {
+		r.log.Error("Failed to execute query", "error", err)
+		return nil, errors.New("unable to fetch race results from the database")
+	}
+	defer rows.Close()
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
+	for rows.Next() {
+		var rider models.Rider
+		var raceResult models.RaceResult
+
+		// Сканирование данных строки
+		err := rows.Scan(
+			&raceResult.ChampName,
+			&raceResult.EventName,
+			&raceResult.EventCode,
+			&raceResult.RaceType,
+			&raceResult.City,
+			&raceResult.State,
+			&raceResult.Track,
+			&raceResult.Date,
+			&raceResult.Round,
+			&raceResult.TotalRounds,
+			&raceResult.Class,
+			&rider.Position,
+			&rider.RiderNumber,
+			&rider.Rider,
+			&rider.Bike,
+			&rider.Team,
+		)
+		if err != nil {
+			r.log.Error("Failed to scan row", "error", err)
+			return nil, errors.New("error scanning race results")
+		}
+
+		if existingResult, ok := result[raceResult.Class]; ok {
+			existingResult.Results = append(existingResult.Results, rider)
+			result[raceResult.Class] = existingResult
+		} else {
+			raceResult.Results = []models.Rider{rider}
+			result[raceResult.Class] = raceResult
+		}
+	}
+
+	if err = rows.Err(); err != nil {
+		r.log.Error("Row iteration error", "error", err)
+		return nil, errors.New("error iterating over race results")
+	}
+
+	return result, nil
+}
+
+func (r *Repository) GetCompletedEvents() ([]models.Event, error) {
+	var events []models.Event
+
+	err := r.db.Select(&events, sqlGetCompletedEvents)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
+	if err != nil {
+		r.log.Error("Failed to fetch completed events", "error", err)
+		return nil, errors.New("unable to fetch completed events from database")
+	}
+
+	return events, nil
+}
+
 // UpdateUserPreference updates the user preferences
 type UserPreferenceUpdate struct {
 	TGUserID              int64

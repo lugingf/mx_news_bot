@@ -1,6 +1,7 @@
 package updater
 
 import (
+	"context"
 	"log/slog"
 
 	"mx_news_bot/internal/models"
@@ -16,7 +17,7 @@ type Checker interface {
 }
 
 type Downloader interface {
-	DownloadFiles(files []string) error
+	DownloadEventFiles(ctx context.Context, eventName string) error
 }
 
 type Parser interface {

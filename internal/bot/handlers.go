@@ -2,7 +2,6 @@ package bot
 
 import (
 	"fmt"
-
 	tele "gopkg.in/telebot.v3"
 )
 
@@ -77,13 +76,38 @@ func (b *Bot) showChampionshipSchedulesMenu(c tele.Context) error {
 }
 
 func (b *Bot) showEventResults(c tele.Context) error {
-	replyMarkup := &tele.ReplyMarkup{
-		ReplyKeyboard: [][]tele.ReplyButton{
-			{tele.ReplyButton{Text: ButtonChampionshipSchedules}},
-			{tele.ReplyButton{Text: ButtonBackToMainMenu}},
-		}, ResizeKeyboard: true,
+	events, err := b.app.GetCompletedEvents()
+	if err != nil {
+		b.log.Error("Failed to fetch events", "error", err)
+		return c.Send("An error occurred while fetching events. Please try again later.")
 	}
-	return c.Send(ButtonEventResults, replyMarkup)
+
+	const maxVisibleEvents = 5
+	var inlineButtons [][]tele.InlineButton
+
+	for i, event := range events {
+		if i >= maxVisibleEvents {
+			break
+		}
+		eventButton := tele.InlineButton{
+			Unique: fmt.Sprintf("%s%d", uqEventPrefix, event.ID),
+			Text:   fmt.Sprintf("%s (%s)", event.Name, event.Date.Format("02.01.2006")),
+		}
+		inlineButtons = append(inlineButtons, []tele.InlineButton{eventButton})
+	}
+
+	if len(events) > maxVisibleEvents {
+		showAllButton := tele.InlineButton{
+			Unique: uqShowAllEvents,
+			Text:   "Show All Events",
+		}
+		inlineButtons = append(inlineButtons, []tele.InlineButton{showAllButton})
+	}
+
+	b.log.Info("Showing event results", "events", events, "buttons", inlineButtons)
+
+	inlineMarkup := &tele.ReplyMarkup{InlineKeyboard: inlineButtons}
+	return c.Send("Select an event to see the results:", inlineMarkup)
 }
 
 func (b *Bot) showPointsDistributionMenu(c tele.Context) error {

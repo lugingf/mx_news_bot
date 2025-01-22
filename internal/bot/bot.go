@@ -69,6 +69,7 @@ func New(cfg *config.Config, app *service.BotBackend, log *slog.Logger) *Bot {
 
 	log.Info("Make handlers")
 	b.setupHandlers()
+	b.setupInlineHandlers()
 
 	return b
 }

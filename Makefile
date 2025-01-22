@@ -41,9 +41,9 @@ build-uploader:
 build-downloader:
 	go build -ldflags "-s -w" -o download ./cmd/downloader
 
-run-tn:
+run-ng:
 	# nohup ssh -R 80:localhost:8585 serveo.net > serveo_url.txt 2>&1 &
-	ssh -R 80:localhost:8585 serveo.net > serveo_url.txt
+	ngrok http 8585
 
 set-hook-t:
 	NGROK_ADDR=$$(head -n 1 ./serveo_url.txt | rev | cut -c 2- | rev | awk '{print $$5}' | tr -d '\n'); \
