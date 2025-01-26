@@ -54,6 +54,15 @@ type Event struct {
 	Status           string    `db:"event_status"` // upcoming or completed
 }
 
+type EventToCheck struct {
+	ID             int       `db:"id"`
+	ChampionshipID string    `db:"championship_id"`
+	Name           string    `db:"name"`
+	Classes        string    `db:"classes"`
+	RoundNumber    string    `db:"round_number"`
+	Date           time.Time `db:"event_date"`
+}
+
 // UserPreference model representing user preferences such as default championship and notifications
 type UserPreference struct {
 	PreferenceID          int   `db:"preference_id"`

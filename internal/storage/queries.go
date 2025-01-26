@@ -38,6 +38,17 @@ WHERE a.championship_id = 1
 ORDER BY a.class DESC, events.round_number, a.position;
 
 `
+	sqlGetNextEventToCheck = `
+SELECT 
+    championship_id, 
+    name, 
+    events.classes, 
+    round_number, 
+    event_date 
+FROM events 
+WHERE event_status = 'upcoming' 
+ORDER BY event_date LIMIT 1;
+	`
 
 	sqlGetUpcomingEvents = `
 SELECT

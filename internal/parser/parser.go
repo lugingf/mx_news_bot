@@ -50,52 +50,58 @@ func New(r *storage.Repository, cfg *Config, l *slog.Logger) *Parser {
 	}
 }
 
-func (p *Parser) ParseFile(pdfFile string) {
+func (p *Parser) ParseFile(pdfFile string, event models.EventToCheck) (models.RaceResult, error) {
 	err := pdfconverter.ConvertPDFToText(pdfFile, p.cfg.OutputFile)
 	if err != nil {
-		p.logger.Error("Ошибка при конвертации PDF в текст: %v", err)
-		return
+		return models.RaceResult{}, errors.Wrapf(err, "Ошибка при конвертации PDF в текст: %v", err)
 	}
 
 	file, err := os.Open(p.cfg.OutputFile)
 	if err != nil {
-		if file != nil {
-			file.Close()
-		}
-
-		p.logger.Error("Ошибка при открытии файла текста: %v", err)
-		return
+		return models.RaceResult{}, errors.Wrapf(err, "Ошибка при открытии файла текста: %v", err)
 	}
 
-	raceResult, err := p.getRaceResult(pdfFile, file)
+	defer file.Close()
+
+	raceResult, err := p.getRaceResult(pdfFile, file, event)
 	if err != nil {
-		file.Close()
 		p.logger.Error("can't get race result", "error", err, "file", pdfFile)
-		return
+		return raceResult, errors.Wrapf(err, "can't get race result")
 	}
 	// debug
 	p.outputJSON(raceResult)
 
+	return raceResult, nil
+}
+
+func (p *Parser) UploadRaceResult(raceResult models.RaceResult) error {
 	if p.cfg.DryRun {
-		file.Close()
-		return
+		return nil
 	}
 
-	err = p.repo.UploadRaceResultsSMX(raceResult)
+	err := p.repo.UploadRaceResultsSMX(raceResult)
 	if err != nil {
-		p.logger.Error("Cant upload race results from file", "file", pdfFile, "error", err)
+		p.logger.Error("Cant upload race results", "race", raceResult.EventName, "error", err)
+		return errors.Wrap(err, "Cant upload race results")
 	}
 
-	file.Close()
+	return nil
 }
 
 // FIXME do it right
-func (p *Parser) getRoundNumber(fileName string) string {
-	if strings.Contains(fileName, "Anaheim") {
+func (p *Parser) getRoundNumber(fileName string, event models.EventToCheck) string {
+	if event.RoundNumber != "" {
+		return event.RoundNumber
+	}
+
+	if strings.Contains(fileName, "Anaheim 1") {
 		return "1"
 	}
 	if strings.Contains(fileName, "San Diego") {
 		return "2"
+	}
+	if strings.Contains(fileName, "Anaheim 2") {
+		return "3"
 	}
 	return "0"
 }
@@ -113,13 +119,14 @@ func (p *Parser) getRaceType(fileName string) string {
 	return "Undefined"
 }
 
-func (p *Parser) getRaceResult(pdfFile string, file io.Reader) (models.RaceResult, error) {
+func (p *Parser) getRaceResult(pdfFile string, file io.Reader, event models.EventToCheck) (models.RaceResult, error) {
 	var raceResult models.RaceResult
 
 	raceResult.RaceType = p.getRaceType(pdfFile)
 	raceResult.ChampName = championshipSX
-	raceResult.Round = p.getRoundNumber(pdfFile)
+	raceResult.Round = p.getRoundNumber(pdfFile, event)
 
+	// TODO get total rounds for champ this year
 	raceResult.TotalRounds = "17"
 
 	scanner := bufio.NewScanner(file)
@@ -161,24 +168,23 @@ func (p *Parser) getEventCode(date time.Time, name, roundNum string) (string, er
 	return fmt.Sprintf("%s%d%02d", prefix, lastTwoDigits, rN), nil
 }
 
-func (p *Parser) CollectFiles(fileNames []string) ([]string, error) {
+func (p *Parser) CollectFiles(eventNames []string) ([]string, error) {
 	var filePaths []string
-
-	fileNameMap := make(map[string]struct{})
-	for _, name := range fileNames {
-		fileNameMap[name] = struct{}{}
-	}
 
 	// Проходим по всем поддиректориям
 	err := filepath.Walk(p.cfg.DataDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err
+			return errors.Wrap(err, "can't walk on directories")
 		}
 
 		if !info.IsDir() {
-			if _, exists := fileNameMap[info.Name()]; exists {
+			if len(eventNames) == 0 {
 				filePaths = append(filePaths, path)
-			} else if len(fileNames) == 0 {
+				return nil
+			}
+
+			name := info.Name()
+			if p.inList(name, eventNames) {
 				filePaths = append(filePaths, path)
 			}
 		}
@@ -191,6 +197,15 @@ func (p *Parser) CollectFiles(fileNames []string) ([]string, error) {
 	}
 
 	return filePaths, nil
+}
+
+func (p *Parser) inList(name string, list []string) bool {
+	for _, need := range list {
+		if strings.Contains(name, need) {
+			return true
+		}
+	}
+	return false
 }
 
 // Monster Energy AMA Supercross results parser

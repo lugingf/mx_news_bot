@@ -2,186 +2,76 @@ package updater
 
 import (
 	"context"
-	"database/sql"
-	"fmt"
 	"log/slog"
-	"os"
-	"regexp"
-	"strings"
-	"time"
 
 	"github.com/chromedp/chromedp"
+	"github.com/pkg/errors"
+
+	dwn "mx_news_bot/internal/downloader"
+	"mx_news_bot/internal/parser"
+	"mx_news_bot/internal/storage"
 )
 
-type Event struct {
-	EventID string
-	Date    time.Time
-	Link    string
-}
-
-type ScrapeFile struct {
-	EventID     string
-	FileName    string
-	FilePath    string
-	Status      string // pending, downloaded, processed
-	LastChecked time.Time
-}
-
+// TODO to constructor
 const (
-	BaseURL     = "https://archives.amasupercross.com"
-	PDFNameMask = `(?i)href\s*=\s*['"]([^'" ]+\.pdf)['"]` // Маска для имени файла PDF
+	BaseURL = "https://results.supercrosslive.com/events/"
 )
 
 type SXChecker struct {
-	log      *slog.Logger
-	pdfRegex *regexp.Regexp
+	repo *storage.Repository
+	dwnl *dwn.Downloader
+	log  *slog.Logger
+	prsr *parser.Parser
+}
+
+func New(repo *storage.Repository, dwnl *dwn.Downloader, prsr *parser.Parser, log *slog.Logger) *SXChecker {
+	return &SXChecker{
+		log:  log,
+		repo: repo,
+		dwnl: dwnl,
+		prsr: prsr,
+	}
 }
 
 // Check fetches and parses event pages for PDF links.
-func (c *SXChecker) Check(events []Event, db *sql.DB) error {
-	ctx, cancel := chromedp.NewContext(context.Background())
+func (c *SXChecker) Check() error {
+	event, err := c.repo.GetNextEvent()
+	if err != nil {
+		return errors.Wrap(err, "can't collect next event for download")
+	}
+	// Create a Chromedp allocator with default options
+	allocatorCtx, cancelAllocator := chromedp.NewExecAllocator(context.Background(), chromedp.DefaultExecAllocatorOptions[:]...)
+	defer cancelAllocator()
+
+	// Create a Chromedp context
+	ctx, cancel := chromedp.NewContext(allocatorCtx)
 	defer cancel()
 
-	for _, event := range events {
-		c.log.Info("Checking event link", slog.String("link", event.Link))
+	c.log.Info("Checking event", slog.String("event_name", event.Name))
 
-		var pageContent string
+	err = c.dwnl.DownloadEventFiles(ctx, event.Name)
+	if err != nil {
+		return errors.Wrapf(err, "can't check event %s", event.Name)
+	}
 
-		err := chromedp.Run(ctx,
-			chromedp.Navigate(event.Link),
-			chromedp.Sleep(5*time.Second), // Wait for loading dynamic content
-			chromedp.OuterHTML("html", &pageContent),
-		)
+	files, err := c.prsr.CollectFiles([]string{event.Name})
+	if err != nil {
+		return errors.Wrapf(err, "can't collect files for event %s", event.Name)
+	}
 
+	for _, file := range files {
+		raceResult, err := c.prsr.ParseFile(file, event)
 		if err != nil {
-			c.log.Error("Couldn't visit event page", slog.String("link", event.Link), slog.String("error", err.Error()))
+			c.log.Error("can't parse file", "error", err.Error(), "file_name", file)
 			continue
 		}
 
-		matches := c.pdfRegex.FindAllStringSubmatch(pageContent, -1)
-
-		for _, match := range matches {
-			if len(match) > 1 {
-				pdfLink := match[1]
-
-				if !strings.HasPrefix(pdfLink, "http") {
-					pdfLink = toAbsoluteURL(pdfLink, event.Link)
-				}
-
-				fileName := pdfLink[strings.LastIndex(pdfLink, "/")+1:]
-				file := ScrapeFile{
-					EventID:     event.EventID,
-					FileName:    fileName,
-					FilePath:    pdfLink,
-					Status:      "pending",
-					LastChecked: time.Now(),
-				}
-				if err := c.insertScrapeFile(db, file); err != nil {
-					c.log.Error("Failed to insert scrape file", slog.String("event_id", file.EventID), slog.String("file_name", file.FileName), slog.String("error", err.Error()))
-				}
-			}
+		err = c.prsr.UploadRaceResult(raceResult)
+		if err != nil {
+			c.log.Error("can't upload race result", "error", err.Error(), "file_name", file)
+			continue
 		}
 	}
+
 	return nil
-}
-
-// LoadEventsFromDB loads events and their details from the database.
-func (c *SXChecker) LoadEventsFromDB(db *sql.DB, baseID string) ([]Event, error) {
-	query := `
-		SELECT 
-			CONCAT(?, LPAD(CAST(round_number AS TEXT), 2, '0')) AS event_id,
-			event_date,
-			CONCAT(?, '/', YEAR(event_date), '/index.html?EventID=', CONCAT(?, LPAD(CAST(round_number AS TEXT), 2, '0'))) AS link
-		FROM events
-		WHERE championship_id = 1
-	`
-	rows, err := db.Query(query, baseID, BaseURL, baseID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	events := make([]Event, 0)
-	for rows.Next() {
-		var event Event
-		if err := rows.Scan(&event.EventID, &event.Date, &event.Link); err != nil {
-			return nil, err
-		}
-		events = append(events, event)
-	}
-	return events, nil
-}
-
-// InsertScrapeFile inserts or updates scrape file details in the database.
-func (c *SXChecker) insertScrapeFile(db *sql.DB, scrapeFile ScrapeFile) error {
-	query := `
-		INSERT INTO event_scrape (event_id, file_name, file_path, status, last_checked)
-		VALUES ($1, $2, $3, $4, $5)
-		ON CONFLICT (event_id, file_name) DO UPDATE
-		SET file_path = EXCLUDED.file_path, status = EXCLUDED.status, last_checked = EXCLUDED.last_checked
-	`
-	_, err := db.Exec(query, scrapeFile.EventID, scrapeFile.FileName, scrapeFile.FilePath, scrapeFile.Status, scrapeFile.LastChecked)
-	return err
-}
-
-// ToAbsoluteURL converts a relative URL to an absolute URL based on the base URL.
-func toAbsoluteURL(relative, base string) string {
-	if strings.HasPrefix(relative, "/") {
-		base = strings.TrimRight(base, "/")
-	}
-	return fmt.Sprintf("%s%s", base, relative)
-}
-
-// expectedFiles := []string{"S1F1RES.pdf", "S2F1RES.pdf"}
-//
-//	if err := preloadScrapeTable(db, events, expectedFiles); err != nil {
-//		logger.Error("Failed to preload scrape table", slog.String("error", err.Error()))
-//		return
-//	}
-func (c *SXChecker) preloadScrapeTable(db *sql.DB, events []Event, expectedFiles []string) error {
-	for _, event := range events {
-		for _, fileName := range expectedFiles {
-			scrapeFile := ScrapeFile{
-				EventID:     event.EventID,
-				FileName:    fileName,
-				FilePath:    "", // Пока неизвестен
-				Status:      "pending",
-				LastChecked: time.Now(),
-			}
-			if err := c.insertScrapeFile(db, scrapeFile); err != nil {
-				return fmt.Errorf("failed to preload file %s for event %s: %w", fileName, event.EventID, err)
-			}
-		}
-	}
-	return nil
-}
-
-func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	checker := SXChecker{
-		log:      logger,
-		pdfRegex: regexp.MustCompile(PDFNameMask),
-	}
-
-	baseID := "S25"
-
-	// Подключение к базе данных
-	db, err := sql.Open("postgres", "your_connection_string")
-	if err != nil {
-		logger.Error("Failed to connect to database", slog.String("error", err.Error()))
-		return
-	}
-	defer db.Close()
-
-	// Load events from database
-	events, err := checker.LoadEventsFromDB(db, baseID)
-	if err != nil {
-		logger.Error("Failed to load events from database", slog.String("error", err.Error()))
-		return
-	}
-
-	// Check events and store file details
-	if err := checker.Check(events, db); err != nil {
-		logger.Error("Failed to check events", slog.String("error", err.Error()))
-	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"mx_news_bot/config"
+	"mx_news_bot/internal/models"
 	prsr "mx_news_bot/internal/parser"
 	"mx_news_bot/internal/storage"
 	"os"
@@ -39,7 +40,8 @@ func main() {
 
 	parser := prsr.New(repository, &pconf, logger)
 
-	files, err := parser.CollectFiles([]string{})
+	eventNames := []string{"Anaheim 1", "San Diego", "Anaheim 2"}
+	files, err := parser.CollectFiles(eventNames)
 	if err != nil {
 		logger.Error("Files collect error: %v", err)
 		return
@@ -47,8 +49,18 @@ func main() {
 	logger.Info("Files collected", "files", files)
 
 	for _, pdfFile := range files {
-		parser.ParseFile(pdfFile)
+		result, err := parser.ParseFile(pdfFile, models.EventToCheck{RoundNumber: ""})
+		if err != nil {
+			logger.Error("Can't parse file", "file", pdfFile)
+			continue
+		}
+
+		err = parser.UploadRaceResult(result)
+		if err != nil {
+			logger.Error("Can't upload race result", "file", pdfFile)
+			continue
+		}
 	}
 
-	logger.Info("All files parsed successfully")
+	logger.Info("Process finished")
 }
