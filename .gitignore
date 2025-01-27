@@ -9,3 +9,4 @@ upload
 download
 serveo_url.txt
 .env.local
+config.json

@@ -1,0 +1,45 @@
+{
+  "ngrok": {
+    "addr": "https://3d16c0b37937f473db346673984e745d.serveo.net",
+    "token": ""
+  },
+  "app": {
+    "bot": {
+      "token": "",
+      "hook": "https://3d16c0b37937f473db346673984e745d.serveo.net",
+      "verbose": false
+    },
+    "champ_configs": {
+      "sx": {
+        "base_url": "https://archives.amasupercross.com"
+      },
+      "promx": {
+        "base_url": "https://www.americanmotocrossresults.com"
+      }
+    }
+  },
+  "yandex": {
+    "base_url": "https://llm.api.cloud.yandex.net",
+    "folder_id": "",
+    "api_key": ""
+  },
+  "metrics": {
+    "port": 9595,
+    "read_timeout": "30s"
+  },
+  "http": {
+    "port": 8585,
+    "read_timeout": "15s",
+    "local": true
+  },
+  "database": {
+    "mx_conn": {
+      "host": "localhost",
+      "port": 6444,
+      "user": "",
+      "dbname": "",
+      "sslmode": "disable",
+      "password": ""
+    }
+  }
+}
