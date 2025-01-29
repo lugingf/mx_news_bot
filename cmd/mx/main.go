@@ -22,11 +22,7 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	cfg, err := config.New(ctx)
-	if err != nil {
-		slog.Error("Config initialization failed", "error", err)
-		return
-	}
+	cfg := config.New("config.json")
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
@@ -43,13 +39,13 @@ func main() {
 		logger,
 	)
 
-	botClient := bot.New(cfg, application, logger)
+	botClient := bot.New(&cfg.App.Bot, application, logger)
 
 	config.InitMetrics()
 	go runMetricServer(cfg.Metrics, logger)
 
 	go func() {
-		logger.Info("Listening on port", "port", cfg.App.Port)
+		logger.Info("Listening on port", "port", cfg.App.Bot.Port)
 		logger.Info("Start bot")
 		botClient.Start()
 	}()

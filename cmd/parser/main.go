@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"log/slog"
 	"mx_news_bot/config"
 	"mx_news_bot/internal/models"
@@ -16,11 +15,7 @@ const (
 )
 
 func main() {
-	cfg, err := config.New(context.Background())
-	if err != nil {
-		slog.Error("Config initialization failed", "error", err)
-		return
-	}
+	cfg := config.New("config.json")
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 

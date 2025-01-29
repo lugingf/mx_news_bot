@@ -1,18 +1,20 @@
 package config
 
 import (
-	"time"
-
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
+	"time"
 )
 
 type DB struct {
-	Conn         string        `env:"CONN,required"`
-	MaxIdleConns int           `env:"MAX_IDLE_CONNS,default=2"`
-	MaxOpenConns int           `env:"MAX_OPEN_CONNS,default=5"`
-	MaxLifeConns time.Duration `env:"MAX_CONN_LIFE,default=10s"`
+	Conn string `env:"CONN,required"`
 }
+
+const (
+	maxIdleConns = 2
+	maxOpenConns = 5
+	maxLifeConns = 10
+)
 
 func OpenSQLXConn(cfg *DB) (db *sqlx.DB, err error) {
 	db, err = sqlx.Open("postgres", cfg.Conn)
@@ -20,9 +22,9 @@ func OpenSQLXConn(cfg *DB) (db *sqlx.DB, err error) {
 		return nil, errors.Wrapf(err, "fail to open connection to '%s'", cfg.Conn)
 	}
 
-	db.SetMaxIdleConns(cfg.MaxIdleConns)
-	db.SetMaxOpenConns(cfg.MaxOpenConns)
-	db.SetConnMaxLifetime(cfg.MaxLifeConns)
+	db.SetMaxIdleConns(maxIdleConns)
+	db.SetMaxOpenConns(maxOpenConns)
+	db.SetConnMaxLifetime(maxLifeConns * time.Second)
 
 	err = db.Ping()
 	if err != nil {

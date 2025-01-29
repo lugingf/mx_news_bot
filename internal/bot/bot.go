@@ -27,20 +27,20 @@ func (b *Bot) Stop() {
 	b.Client.Stop()
 }
 
-func New(cfg *config.Config, app *service.BotBackend, log *slog.Logger) *Bot {
+func New(cfg *config.Bot, app *service.BotBackend, log *slog.Logger) *Bot {
 	botClient, err := tele.NewBot(tele.Settings{
-		Token: cfg.App.BotToken,
+		Token: cfg.BotToken,
 		Poller: &tele.Webhook{
-			Listen: fmt.Sprintf("0.0.0.0:%s", cfg.App.Port),
+			Listen: fmt.Sprintf("0.0.0.0:%s", cfg.Port),
 			Endpoint: &tele.WebhookEndpoint{
-				PublicURL: cfg.App.HookUrl,
+				PublicURL: cfg.HookUrl,
 			},
 			//TLS: &tele.WebhookTLS{
 			//	Cert: "/etc/letsencrypt/live/lugingfwebhookambot.com/fullchain.pem",
 			//	Key:  "/etc/letsencrypt/live/lugingfwebhookambot.com/privkey.pem",
 			//},
 		},
-		Verbose: cfg.App.BotVerbose,
+		Verbose: cfg.BotVerbose,
 	})
 
 	if err != nil {

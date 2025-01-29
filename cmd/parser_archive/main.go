@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
@@ -55,11 +54,7 @@ const (
 var fileSet = []string{"Anaheim #1_250_Main_Event.pdf", "Anaheim #1_450_Main_Event.pdf"}
 
 func main() {
-	cfg, err := config.New(context.Background())
-	if err != nil {
-		slog.Error("Config initialization failed", "error", err)
-		return
-	}
+	cfg := config.New("config.json")
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
@@ -119,7 +114,7 @@ func getRaceResult(pdfFile string, file io.Reader) (models.RaceResult, error) {
 		raceResult.RaceType = raceTypeMain
 	}
 	if strings.Contains(pdfFile, codeClass450SX) || strings.Contains(pdfFile, codeClass250SX) {
-		raceResult.Event = championshipSX
+		raceResult.ChampName = championshipSX
 	}
 
 	scanner := bufio.NewScanner(file)
@@ -127,7 +122,7 @@ func getRaceResult(pdfFile string, file io.Reader) (models.RaceResult, error) {
 	if err != nil {
 		return models.RaceResult{}, errors.Wrapf(err, "parse race result %s", pdfFile)
 	}
-	raceResult.EventCode, err = getEventCode(raceResult.Date, raceResult.Event, raceResult.Round)
+	raceResult.EventCode, err = getEventCode(raceResult.Date, raceResult.ChampName, raceResult.Round)
 	if err != nil {
 		return models.RaceResult{}, errors.Wrapf(err, "cant get eventCode %s", pdfFile)
 	}

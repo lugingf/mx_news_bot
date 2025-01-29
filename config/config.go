@@ -1,60 +1,90 @@
 package config
 
 import (
-	"context"
-	"fmt"
+	"sync"
 	"time"
 
+	kjp "github.com/knadh/koanf/parsers/json"
+	"github.com/knadh/koanf/providers/file"
+	"github.com/knadh/koanf/v2"
 	_ "github.com/lib/pq"
-	"github.com/sethvargo/go-envconfig"
 )
 
+var once sync.Once
+
 type Config struct {
-	App     *App     `env:",prefix=APP_"`
-	Metrics *Metrics `env:",prefix=METRICS_"`
-	Http    *Http    `env:",prefix=HTTP_"`
-	DB      *DB      `env:",prefix=DB_MAINMX_"`
-	Yandex  *Yandex  `env:",prefix=YANDEX_"`
+	App     *App     `json:"app"`
+	Metrics *Metrics `json:"metrics"`
+	Http    *Http    `json:"http"`
+	DB      *DB      `json:"database"`
+	Yandex  *Yandex  `json:"yandex"`
 }
 
 type Yandex struct {
-	BaseURL  string `env:"BASE_URL, required"`
-	FolderID string `env:"FOLDER_ID, required"`
-	ApiKey   string `env:"API_KEY, required"`
+	BaseURL  string `json:"base_url,required"`
+	FolderID string `json:"folder_id,required"`
+	ApiKey   string `json:"api_key,required"`
 }
 
 type App struct {
-	Port         string              `env:"PORT"`
-	BotToken     string              `env:"BOT_TOKEN, required"`
-	HookUrl      string              `env:"BOT_HOOK, required"`
-	BotVerbose   bool                `env:"BOT_VERBOSE"`
-	ChampConfigs ChampionshipConfigs `env:",prefix=CHAMP_CONFIGS_"`
+	Bot          Bot                 `json:"bot"`
+	ChampConfigs ChampionshipConfigs `json:"champ_configs"`
+}
+
+type Bot struct {
+	Port       string `json:"port,required"`
+	BotToken   string `json:"token,required"`
+	HookUrl    string `json:"hook,required"`
+	BotVerbose bool   `json:"verbose"`
 }
 
 type ChampionshipConfigs struct {
-	SXConfig    ChampionshipConfig `env:",prefix=SX_CONFIG"`
-	ProMXConfig ChampionshipConfig `env:",prefix=PROMX_CONFIG"`
+	SXConfig    ChampionshipConfig `json:"sx"`
+	ProMXConfig ChampionshipConfig `json:"promx"`
 }
 
 type ChampionshipConfig struct {
-	BaseURL string `env:"BASE_URL, required"`
+	BaseURL string `json:"base_url"`
 }
 
 type Metrics struct {
-	Port        string        `env:"PORT"`
-	ReadTimeout time.Duration `env:"READ_TIMEOUT"`
+	Port        string        `json:"port"`
+	ReadTimeout time.Duration `json:"read_timeout"`
 }
 
 type Http struct {
-	ReadTimeout time.Duration `env:"READ_TIMEOUT"`
-	IsLocal     bool          `env:"LOCAL"`
+	ReadTimeout time.Duration `json:"read_timeout"`
+	IsLocal     bool          `json:"local"`
 }
 
-func New(ctx context.Context) (*Config, error) {
-	var cfg Config
+func New(configPath string) *Config {
+	var c Config
 
-	if err := envconfig.Process(ctx, &cfg); err != nil {
-		return nil, fmt.Errorf("process: %w", err)
-	}
-	return &cfg, nil
+	once.Do(func() {
+		var ko = koanf.New(".")
+		var cc Config
+
+		err := ko.Load(file.Provider(configPath), kjp.Parser())
+		if err != nil {
+			panic(err)
+		}
+
+		err = ko.UnmarshalWithConf("", &cc, koanf.UnmarshalConf{Tag: "json", FlatPaths: false})
+		if err != nil {
+			panic(err)
+		}
+
+		c = cc
+	})
+
+	return &c
 }
+
+//func New(ctx context.Context) (*Config, error) {
+//	var cfg Config
+//
+//	if err := envconfig.Process(ctx, &cfg); err != nil {
+//		return nil, fmt.Errorf("process: %w", err)
+//	}
+//	return &cfg, nil
+//}
