@@ -52,18 +52,22 @@ func (r *Repository) GetUpcomingEvents() ([]models.Event, error) {
 }
 
 func (r *Repository) GetNextEvent() (models.EventToCheck, error) {
-	var event models.EventToCheck
+	var event []models.EventToCheck
 
 	err := r.db.Select(&event, sqlGetNextEventToCheck)
 	if errors.Is(err, sql.ErrNoRows) {
-		return event, nil
+		return models.EventToCheck{}, nil
 	}
 
 	if err != nil {
-		return event, errors.Wrap(err, "unable to check next upcoming event from database")
+		return models.EventToCheck{}, errors.Wrap(err, "unable to check next upcoming event from database")
 	}
 
-	return event, nil
+	if len(event) == 0 {
+		return models.EventToCheck{}, nil
+	}
+
+	return event[0], nil
 }
 
 func (r *Repository) GetEventResultByID(eventID int) (map[string]models.RaceResult, error) {

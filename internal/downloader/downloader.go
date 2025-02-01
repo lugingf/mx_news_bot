@@ -27,7 +27,7 @@ func NewDownloader(baseURL, dataDir string) *Downloader {
 	return &Downloader{BaseURL: baseURL, DataDir: dataDir}
 }
 
-func (d *Downloader) DownloadEventFiles(ctx context.Context, eventName string) error {
+func (d *Downloader) DownloadEventFiles(ctx context.Context, eventName string) (int, error) {
 	// Variable to store results
 	var eventsJSON string
 
@@ -44,13 +44,13 @@ func (d *Downloader) DownloadEventFiles(ctx context.Context, eventName string) e
 		}))`, &eventsJSON),
 	)
 	if err != nil {
-		return fmt.Errorf("failed to extract event links: %w", err)
+		return 0, fmt.Errorf("failed to extract event links: %w", err)
 	}
 
 	// Parse the JSON result
 	var events []Event
 	if err := json.Unmarshal([]byte(eventsJSON), &events); err != nil {
-		return fmt.Errorf("failed to parse JSON: %w", err)
+		return 0, fmt.Errorf("failed to parse JSON: %w", err)
 	}
 
 	// Find the event with the given name
@@ -63,7 +63,7 @@ func (d *Downloader) DownloadEventFiles(ctx context.Context, eventName string) e
 	}
 
 	if eventURL == "" {
-		return fmt.Errorf("no event link found for '%s'", eventName)
+		return 0, fmt.Errorf("no event link found for '%s'", eventName)
 	}
 
 	fmt.Printf("Visiting event URL: %s\n", eventURL)
@@ -71,20 +71,23 @@ func (d *Downloader) DownloadEventFiles(ctx context.Context, eventName string) e
 	// Step 2: Visit the event page and separate links for "250 Main Event" and "450 Main Event"
 	races, err := d.getMainEvents(ctx, eventURL)
 	if err != nil {
-		return errors.Wrap(err, "failed to get main events")
+		return 0, errors.Wrap(err, "failed to get main events")
 	}
 
 	// Step 3: Download files
+	count := 0
 	for name, links := range races.links {
 		for _, link := range links {
 			err := d.download(link, name, eventName)
 			if err != nil {
-				return err
+				return 0, errors.Wrap(err, "can't download file")
 			}
+
+			count++
 		}
 	}
 
-	return nil
+	return count, nil
 }
 
 type raceSet struct {

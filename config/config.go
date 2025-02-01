@@ -29,6 +29,7 @@ type Yandex struct {
 type App struct {
 	Bot          Bot                 `json:"bot"`
 	ChampConfigs ChampionshipConfigs `json:"champ_configs"`
+	ParserConfig ParserConfig        `json:"parser_config"`
 }
 
 type Bot struct {
@@ -45,6 +46,14 @@ type ChampionshipConfigs struct {
 
 type ChampionshipConfig struct {
 	BaseURL string `json:"base_url"`
+	DataDir string `json:"data_dir"`
+}
+
+type ParserConfig struct {
+	DryRun     bool   `json:"dry_run"`
+	DataDir    string `json:"data_dir"`
+	OutputFile string `json:"output_file"`
+	CronRule   string `json:"cron"`
 }
 
 type Metrics struct {

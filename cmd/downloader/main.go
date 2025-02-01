@@ -22,7 +22,7 @@ func main() {
 	eventList := []string{"Anaheim 2"}
 
 	for _, eventName := range eventList {
-		if err := downloader.DownloadEventFiles(ctx, eventName); err != nil {
+		if _, err := downloader.DownloadEventFiles(ctx, eventName); err != nil {
 			fmt.Printf("Error in eventName %s: %v\n", eventName, err)
 		} else {
 			fmt.Printf("All files downloaded successfully for event name  %s.\n", eventName)

@@ -103,6 +103,9 @@ func (p *Parser) getRoundNumber(fileName string, event models.EventToCheck) stri
 	if strings.Contains(fileName, "Anaheim 2") {
 		return "3"
 	}
+	if strings.Contains(fileName, "Anaheim 2") {
+		return "4"
+	}
 	return "0"
 }
 

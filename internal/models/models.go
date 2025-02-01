@@ -55,7 +55,6 @@ type Event struct {
 }
 
 type EventToCheck struct {
-	ID             int       `db:"id"`
 	ChampionshipID string    `db:"championship_id"`
 	Name           string    `db:"name"`
 	Classes        string    `db:"classes"`

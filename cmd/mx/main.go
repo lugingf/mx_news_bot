@@ -11,11 +11,15 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/robfig/cron/v3"
 
 	"mx_news_bot/config"
 	"mx_news_bot/internal/bot"
+	"mx_news_bot/internal/downloader"
+	"mx_news_bot/internal/parser"
 	"mx_news_bot/internal/service"
 	"mx_news_bot/internal/storage"
+	"mx_news_bot/internal/updater"
 )
 
 func main() {
@@ -23,8 +27,11 @@ func main() {
 	defer cancel()
 
 	cfg := config.New("config.json")
-
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+
+	// Metrics
+	config.InitMetrics()
+	go runMetricServer(cfg.Metrics, logger)
 
 	dbm, err := config.OpenSQLXConn(cfg.DB)
 	if err != nil {
@@ -33,16 +40,11 @@ func main() {
 	}
 
 	repository := storage.New(dbm, logger)
-
 	application := service.NewApp(
 		repository,
 		logger,
 	)
-
 	botClient := bot.New(&cfg.App.Bot, application, logger)
-
-	config.InitMetrics()
-	go runMetricServer(cfg.Metrics, logger)
 
 	go func() {
 		logger.Info("Listening on port", "port", cfg.App.Bot.Port)
@@ -50,9 +52,38 @@ func main() {
 		botClient.Start()
 	}()
 
+	// Results Checker
+	sxCfg := cfg.App.ChampConfigs.SXConfig
+	dwnlr := downloader.NewDownloader(sxCfg.BaseURL, sxCfg.DataDir)
+	prCfg := cfg.App.ParserConfig
+	prsr := parser.New(repository, &parser.Config{
+		DryRun:     prCfg.DryRun,
+		DataDir:    prCfg.DataDir,
+		OutputFile: prCfg.OutputFile,
+	}, logger)
+
+	updService := updater.New(repository, dwnlr, prsr, logger)
+
+	c := cron.New()
+	_, err = c.AddFunc(prCfg.CronRule, func() {
+		logger.Info("Checking events")
+		err := updService.Check()
+		if err != nil {
+			slog.Error("checker check failed", "error", err)
+		}
+	})
+	logger.Info("Start events checker")
+	c.Start()
+
+	if err != nil {
+		slog.Error("checker func add cron failed", "error", err)
+		return
+	}
+
 	select {
 	case <-ctx.Done():
 		logger.Info("Context done signal received")
+		c.Stop()
 		//botClient.Stop()
 	}
 
