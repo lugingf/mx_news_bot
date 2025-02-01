@@ -35,10 +35,10 @@ func New(cfg *config.Bot, app *service.BotBackend, log *slog.Logger) *Bot {
 			Endpoint: &tele.WebhookEndpoint{
 				PublicURL: cfg.HookUrl,
 			},
-			//TLS: &tele.WebhookTLS{
-			//	Cert: "/etc/letsencrypt/live/lugingfwebhookambot.com/fullchain.pem",
-			//	Key:  "/etc/letsencrypt/live/lugingfwebhookambot.com/privkey.pem",
-			//},
+			TLS: &tele.WebhookTLS{
+				Cert: "/etc/letsencrypt/live/lugingfwebhookambot.com/fullchain.pem",
+				Key:  "/etc/letsencrypt/live/lugingfwebhookambot.com/privkey.pem",
+			},
 		},
 		Verbose: cfg.BotVerbose,
 	})
