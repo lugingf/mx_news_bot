@@ -30,8 +30,7 @@ func (r *Repository) GetAllChampionships() ([]models.Championship, error) {
 	var championships []models.Championship
 	err := r.db.Select(&championships, sqlGetAllChampionships)
 	if err != nil {
-		r.log.Error("Failed to fetch championships", "error", err)
-		return nil, errors.New("unable to fetch championships from database")
+		return nil, errors.Wrap(err, "unable to fetch championships from database")
 	}
 	return championships, nil
 }

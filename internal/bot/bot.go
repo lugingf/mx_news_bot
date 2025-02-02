@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
-	
+
 	tele "gopkg.in/telebot.v3"
 
 	"mx_news_bot/config"

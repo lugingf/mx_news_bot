@@ -1,8 +1,9 @@
 package service
 
 import (
-	"errors"
 	"log/slog"
+	
+	"github.com/pkg/errors"
 
 	"mx_news_bot/internal/models"
 	"mx_news_bot/internal/storage"
@@ -22,8 +23,7 @@ func NewApp(repo *storage.Repository, log *slog.Logger) *BotBackend {
 func (b *BotBackend) GetAllChampionships() ([]models.Championship, error) {
 	championships, err := b.repo.GetAllChampionships()
 	if err != nil {
-		b.log.Error("Failed to get championships", "error", err)
-		return nil, errors.New("could not fetch championships")
+		return nil, errors.Wrap(err, "bot: could not get all championships")
 	}
 	return championships, nil
 }
@@ -31,8 +31,7 @@ func (b *BotBackend) GetAllChampionships() ([]models.Championship, error) {
 func (b *BotBackend) GetUpcomingEvents() ([]models.Event, error) {
 	events, err := b.repo.GetUpcomingEvents()
 	if err != nil {
-		b.log.Error("Failed to get upcoming events", "error", err)
-		return nil, errors.New("could not fetch upcoming events")
+		return nil, errors.Wrap(err, "bot: could not fetch upcoming events")
 	}
 
 	if len(events) == 0 {
@@ -44,8 +43,7 @@ func (b *BotBackend) GetUpcomingEvents() ([]models.Event, error) {
 func (b *BotBackend) GetCompletedEvents() ([]models.Event, error) {
 	events, err := b.repo.GetCompletedEvents()
 	if err != nil {
-		b.log.Error("Failed to get completed events", "error", err)
-		return nil, errors.New("could not fetch completed events")
+		return nil, errors.Wrap(err, "bot: could not fetch completed events")
 	}
 
 	if len(events) == 0 {

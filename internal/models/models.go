@@ -35,10 +35,12 @@ type Rider struct {
 
 // Championship model representing championship details
 type Championship struct {
-	ID           int    `db:"championship_id"`
-	Name         string `db:"name"`
-	DefaultClass string `db:"default_class"`
-	Description  string `db:"description"`
+	ID           int      `db:"id"`
+	Name         string   `db:"championship_name"`
+	ClassNames   []string `db:"class_names"`
+	SeasonYear   int      `db:"season_year"`
+	DefaultClass string   `db:"default_class"`
+	Description  string   `db:"description"`
 }
 
 // Event model representing motocross event details
