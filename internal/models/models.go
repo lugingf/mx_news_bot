@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"github.com/lib/pq"
+	"time"
+)
 
 type User struct {
 	ID        int64  `db:"id"`
@@ -35,12 +38,10 @@ type Rider struct {
 
 // Championship model representing championship details
 type Championship struct {
-	ID           int      `db:"id"`
-	Name         string   `db:"championship_name"`
-	ClassNames   []string `db:"class_names"`
-	SeasonYear   int      `db:"season_year"`
-	DefaultClass string   `db:"default_class"`
-	Description  string   `db:"description"`
+	ID         int            `db:"id"`
+	Name       string         `db:"championship_name"`
+	ClassNames pq.StringArray `db:"class_names"`
+	SeasonYear int            `db:"season_year"`
 }
 
 // Event model representing motocross event details
