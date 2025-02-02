@@ -3,9 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-	"log/slog"
-
 	"github.com/chromedp/chromedp"
+	"log/slog"
 
 	dwl "mx_news_bot/internal/downloader"
 )
@@ -20,7 +19,7 @@ func main() {
 	defer cancel()
 
 	downloader := dwl.NewDownloader("https://results.supercrosslive.com/events/", "data/2025", &slog.Logger{})
-	eventList := []string{"Glendale"}
+	eventList := []string{"Anaheim 1"}
 
 	for _, eventName := range eventList {
 		if _, err := downloader.DownloadEventFiles(ctx, eventName); err != nil {
