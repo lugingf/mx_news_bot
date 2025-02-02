@@ -28,6 +28,9 @@ const (
 	raceTypeMain  = "Main Event"
 	raceTypeHeat1 = "Heat 1"
 	raceTypeHeat2 = "Heat 2"
+	raceTypeRace1 = "Race 1"
+	raceTypeRace2 = "Race 2"
+	raceTypeRace3 = "Race 3"
 )
 
 type Parser struct {
@@ -117,6 +120,12 @@ func (p *Parser) getRaceType(fileName string) string {
 		return raceTypeHeat1
 	case strings.Contains(fileName, "Heat_2"):
 		return raceTypeHeat2
+	case strings.Contains(fileName, "Race#1"):
+		return raceTypeRace1
+	case strings.Contains(fileName, "Race#2"):
+		return raceTypeRace2
+	case strings.Contains(fileName, "Race#3"):
+		return raceTypeRace3
 	}
 
 	return "Undefined"
