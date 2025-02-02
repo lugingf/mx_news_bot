@@ -39,9 +39,11 @@ func (b *Bot) showEventRaceResult(c tele.Context, uqData string) error {
 		b.log.Error("Bad unique data parts", "unique", uqData)
 		return c.Respond(&tele.CallbackResponse{Text: "Sorry. Race data corrupted. We'll fix it soon"})
 	}
+
 	id, err := strconv.Atoi(parts[0])
 	if err != nil {
 		b.log.Error("Bad unique ID data part", "unique_id", parts[0])
+		return c.Respond(&tele.CallbackResponse{Text: "Sorry. Race data corrupted. We'll fix it soon"})
 	}
 
 	results, err := b.app.GetEventRaceResultByDetails(id, parts[1], parts[2])
@@ -81,6 +83,11 @@ func (b *Bot) showEventRaces(c tele.Context, uqData string) error {
 	if err != nil {
 		b.log.Error("Failed to fetch results details", "eventID", eventID, "error", err)
 		return c.Respond(&tele.CallbackResponse{Text: "Failed to fetch results details."})
+	}
+
+	if races == nil {
+		b.log.Error("No races found for event", "eventID", eventID, "races", len(races))
+		return c.Respond(&tele.CallbackResponse{Text: "Sorry, no data for this event races"})
 	}
 
 	var inlineButtons [][]tele.InlineButton
