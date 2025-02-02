@@ -2,6 +2,7 @@ package service
 
 import (
 	"log/slog"
+	"sort"
 
 	"github.com/pkg/errors"
 
@@ -53,7 +54,7 @@ func (b *BotBackend) GetCompletedEvents() ([]models.Event, error) {
 	return events, nil
 }
 
-func (b *BotBackend) GetEventResultByID(eventID int) ([]models.RaceResult, error) {
+func (b *BotBackend) GetEventRacesResultByID(eventID int) ([]models.RaceResult, error) {
 	races, err := b.repo.GetEventResultByID(eventID)
 	if err != nil {
 		b.log.Error("Failed to get event result", "error", err)
@@ -70,6 +71,13 @@ func (b *BotBackend) GetEventResultByID(eventID int) ([]models.RaceResult, error
 	for _, class := range races {
 		result = append(result, class)
 	}
+
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Class != result[j].Class {
+			return result[i].Class < result[j].Class
+		}
+		return result[i].RaceType < result[j].RaceType
+	})
 
 	return result, nil
 }

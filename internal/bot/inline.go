@@ -31,7 +31,7 @@ func (b *Bot) showAllEvents(c tele.Context) error {
 
 // showEventDetails shows the details of a specific event
 func (b *Bot) showEventDetails(c tele.Context, eventID int) error {
-	results, err := b.app.GetEventResultByID(eventID)
+	results, err := b.app.GetEventRacesResultByID(eventID)
 	if err != nil {
 		b.log.Error("Failed to fetch results details", "eventID", eventID, "error", err)
 		return c.Respond(&tele.CallbackResponse{Text: "Failed to fetch results details."})
