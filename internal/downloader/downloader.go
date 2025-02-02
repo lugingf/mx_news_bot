@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/chromedp/chromedp"
 	"github.com/pkg/errors"
@@ -16,6 +18,7 @@ import (
 type Downloader struct {
 	BaseURL string
 	DataDir string
+	log     *slog.Logger
 }
 
 type Event struct {
@@ -23,16 +26,20 @@ type Event struct {
 	Link string `json:"link"`
 }
 
-func NewDownloader(baseURL, dataDir string) *Downloader {
-	return &Downloader{BaseURL: baseURL, DataDir: dataDir}
+func NewDownloader(baseURL, dataDir string, log *slog.Logger) *Downloader {
+	return &Downloader{BaseURL: baseURL, DataDir: dataDir, log: log}
 }
 
 func (d *Downloader) DownloadEventFiles(ctx context.Context, eventName string) (int, error) {
+	ctxt, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
 	// Variable to store results
 	var eventsJSON string
 
 	// Step 1: Find the event by name and extract its link
-	err := chromedp.Run(ctx,
+
+	err := chromedp.Run(ctxt,
 		chromedp.Navigate(d.BaseURL),
 		chromedp.WaitVisible(`table`, chromedp.ByQuery), // Ensure the table is visible
 		chromedp.Evaluate(`JSON.stringify(Array.from(document.querySelectorAll('tbody tr')).map(row => {

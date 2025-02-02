@@ -53,7 +53,7 @@ func main() {
 
 	// Results Checker
 	sxCfg := cfg.App.ChampConfigs.SXConfig
-	dwnlr := downloader.NewDownloader(sxCfg.BaseURL, sxCfg.DataDir)
+	dwnlr := downloader.NewDownloader(sxCfg.BaseURL, sxCfg.DataDir, logger)
 	prCfg := cfg.App.ParserConfig
 	prsr := parser.New(repository, &parser.Config{
 		DryRun:     prCfg.DryRun,

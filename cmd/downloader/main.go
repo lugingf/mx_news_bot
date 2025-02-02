@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/chromedp/chromedp"
 
@@ -18,7 +19,7 @@ func main() {
 	ctx, cancel := chromedp.NewContext(allocatorCtx)
 	defer cancel()
 
-	downloader := dwl.NewDownloader("https://results.supercrosslive.com/events/", "data/2025")
+	downloader := dwl.NewDownloader("https://results.supercrosslive.com/events/", "data/2025", &slog.Logger{})
 	eventList := []string{"Glendale"}
 
 	for _, eventName := range eventList {
