@@ -68,6 +68,12 @@ func (b *Bot) showEventRaceResult(c tele.Context, uqData string) error {
 		}
 	}
 
+	// Let's show race buttons again
+	err = b.showEventRaces(c, fmt.Sprintf("%s%d", uqEventPrefix, id))
+	if err != nil {
+		b.log.Error("Failed to show race button", "error", err)
+	}
+
 	return nil
 }
 
@@ -91,12 +97,22 @@ func (b *Bot) showEventRaces(c tele.Context, uqData string) error {
 	}
 
 	var inlineButtons [][]tele.InlineButton
+	var row []tele.InlineButton
+
 	for _, race := range races {
 		eventButton := tele.InlineButton{
 			Unique: fmt.Sprintf("%s%d_%s_%s", uqRacePrefix, race.EventID, race.Class, race.RaceType),
 			Text:   fmt.Sprintf("%s - %s", race.Class, race.RaceType),
 		}
-		inlineButtons = append(inlineButtons, []tele.InlineButton{eventButton})
+		row = append(row, eventButton)
+		if len(row) == 3 {
+			inlineButtons = append(inlineButtons, row)
+			row = nil
+		}
+	}
+
+	if len(row) > 0 {
+		inlineButtons = append(inlineButtons, row)
 	}
 
 	inlineMarkup := &tele.ReplyMarkup{InlineKeyboard: inlineButtons}
