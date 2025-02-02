@@ -99,5 +99,6 @@ func (b *Bot) showEventRaces(c tele.Context, uqData string) error {
 		inlineButtons = append(inlineButtons, []tele.InlineButton{eventButton})
 	}
 
-	return nil
+	inlineMarkup := &tele.ReplyMarkup{InlineKeyboard: inlineButtons}
+	return c.Send("Select a race:", inlineMarkup)
 }
