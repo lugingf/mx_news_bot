@@ -170,12 +170,6 @@ CREATE TABLE standings
 );
 
 
--- Updated Table: Championships
-ALTER TABLE championships
-    ADD COLUMN default_class VARCHAR(100), -- Default class to be used for standings and results
-    ADD COLUMN description   TEXT;
--- Additional details about the championship
-
 
 -- New Table: UserPreferences
 CREATE TABLE user_preferences
