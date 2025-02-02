@@ -56,7 +56,7 @@ func (b *Bot) setupInlineHandlers() {
 			return b.showEventRaces(c, data)
 
 		case strings.HasPrefix(data, uqRacePrefix):
-
+			return b.showEventRaceResult(c, data)
 		}
 
 		b.log.Error("Failed to determine callback", "data", data)
