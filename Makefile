@@ -20,6 +20,12 @@ up:
 	sleep 3
 	make migrations
 
+run-d:
+	sudo bash -c 'nohup ./mx_news_bot > output.log 2>&1 &'
+
+kill:
+	sudo pkill -f mx_news_bot
+
 migrations:
 	goose -dir infra/migrations postgres "host=localhost port=6444 user=mx dbname=mx password=mxpassword sslmode=disable" up
 

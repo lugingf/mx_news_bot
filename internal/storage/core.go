@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -111,12 +112,14 @@ func (r *Repository) GetEventResultByID(eventID int) (map[string]models.RaceResu
 			return nil, errors.New("error scanning race results")
 		}
 
-		if existingResult, ok := result[raceResult.Class]; ok {
+		key := r.getRaceKey(raceResult.Class, raceResult.RaceType)
+
+		if existingResult, ok := result[key]; ok {
 			existingResult.Results = append(existingResult.Results, rider)
-			result[raceResult.Class] = existingResult
+			result[key] = existingResult
 		} else {
 			raceResult.Results = []models.Rider{rider}
-			result[raceResult.Class] = raceResult
+			result[key] = raceResult
 		}
 	}
 
@@ -126,6 +129,10 @@ func (r *Repository) GetEventResultByID(eventID int) (map[string]models.RaceResu
 	}
 
 	return result, nil
+}
+
+func (r *Repository) getRaceKey(class, race string) string {
+	return fmt.Sprintf("%s %s", class, race)
 }
 
 func (r *Repository) GetCompletedEvents() ([]models.Event, error) {

@@ -2,7 +2,7 @@ package service
 
 import (
 	"log/slog"
-	
+
 	"github.com/pkg/errors"
 
 	"mx_news_bot/internal/models"
@@ -54,20 +54,20 @@ func (b *BotBackend) GetCompletedEvents() ([]models.Event, error) {
 }
 
 func (b *BotBackend) GetEventResultByID(eventID int) ([]models.RaceResult, error) {
-	classes, err := b.repo.GetEventResultByID(eventID)
+	races, err := b.repo.GetEventResultByID(eventID)
 	if err != nil {
 		b.log.Error("Failed to get event result", "error", err)
 		return nil, errors.New("could not fetch event result")
 	}
 
-	if classes == nil {
+	if races == nil {
 		return nil, errors.New("no data found")
 	}
 
-	b.log.Info("Event result fetched", "classes", len(classes))
-	result := make([]models.RaceResult, 0, len(classes))
+	b.log.Info("Event result fetched", "races", len(races))
+	result := make([]models.RaceResult, 0, len(races))
 
-	for _, class := range classes {
+	for _, class := range races {
 		result = append(result, class)
 	}
 
