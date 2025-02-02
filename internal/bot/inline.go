@@ -2,6 +2,8 @@ package bot
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	tele "gopkg.in/telebot.v3"
 )
@@ -29,11 +31,28 @@ func (b *Bot) showAllEvents(c tele.Context) error {
 	return c.Edit("All events:", inlineMarkup)
 }
 
-// showEventDetails shows the details of a specific event
-func (b *Bot) showEventDetails(c tele.Context, eventID int) error {
-	results, err := b.app.GetEventRacesResultByID(eventID)
+// showEventRaceResult shows the details of a specific event
+func (b *Bot) showEventRaceResult(c tele.Context, uqData string) error {
+	noPref := strings.TrimPrefix(uqData, uqRacePrefix)
+	parts := strings.Split(noPref, "_")
+	if len(parts) != 3 {
+		b.log.Error("Bad unique data parts", "unique", uqData)
+		return c.Respond(&tele.CallbackResponse{Text: "Sorry. Race data corrupted. We'll fix it soon"})
+	}
+	id, err := strconv.Atoi(parts[0])
 	if err != nil {
-		b.log.Error("Failed to fetch results details", "eventID", eventID, "error", err)
+		b.log.Error("Bad unique ID data part", "unique_id", parts[0])
+	}
+
+	results, err := b.app.GetEventRaceResultByDetails(id, parts[1], parts[2])
+	if err != nil {
+		b.log.Error("Failed to fetch results details",
+			"eventID", id,
+			"class", parts[1],
+			"race", parts[2],
+			"error", err,
+		)
+
 		return c.Respond(&tele.CallbackResponse{Text: "Failed to fetch results details."})
 	}
 
@@ -45,6 +64,32 @@ func (b *Bot) showEventDetails(c tele.Context, eventID int) error {
 			b.log.Error("Failed to send event results", "error", err)
 			return c.Respond(&tele.CallbackResponse{Text: "Failed to send event results."})
 		}
+	}
+
+	return nil
+}
+
+// showEventRaces shows the details of a specific event
+func (b *Bot) showEventRaces(c tele.Context, uqData string) error {
+	eventID, err := strconv.Atoi(strings.TrimPrefix(uqData, uqEventPrefix))
+	if err != nil {
+		b.log.Error("Failed to parse event ID", "data", uqData, "error", err)
+		return c.Respond(&tele.CallbackResponse{Text: "Invalid event ID."})
+	}
+
+	races, err := b.app.GetEventRaces(eventID)
+	if err != nil {
+		b.log.Error("Failed to fetch results details", "eventID", eventID, "error", err)
+		return c.Respond(&tele.CallbackResponse{Text: "Failed to fetch results details."})
+	}
+
+	var inlineButtons [][]tele.InlineButton
+	for _, race := range races {
+		eventButton := tele.InlineButton{
+			Unique: fmt.Sprintf("%s%d_%s_%s", uqEventPrefix, race.EventID, race.Class, race.RaceType),
+			Text:   fmt.Sprintf("%s - %s", race.Class, race.RaceType),
+		}
+		inlineButtons = append(inlineButtons, []tele.InlineButton{eventButton})
 	}
 
 	return nil

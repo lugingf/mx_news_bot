@@ -70,10 +70,10 @@ func (r *Repository) GetNextEvent() (models.EventToCheck, error) {
 	return event[0], nil
 }
 
-func (r *Repository) GetEventResultByID(eventID int) (map[string]models.RaceResult, error) {
+func (r *Repository) GetRaceResultByDetails(eventID int, class, raceType string) (map[string]models.RaceResult, error) {
 	result := make(map[string]models.RaceResult)
 
-	rows, err := r.db.Query(sqlGetSXEventResultByID, eventID)
+	rows, err := r.db.Query(sqlGetSXEventResultByDetails, eventID, class, raceType)
 	if err != nil {
 		r.log.Error("Failed to execute query", "error", err)
 		return nil, errors.New("unable to fetch race results from the database")
@@ -146,6 +146,21 @@ func (r *Repository) GetCompletedEvents() ([]models.Event, error) {
 	if err != nil {
 		r.log.Error("Failed to fetch completed events", "error", err)
 		return nil, errors.New("unable to fetch completed events from database")
+	}
+
+	return events, nil
+}
+
+func (r *Repository) GetEventRaces(eventID int) ([]models.EventRace, error) {
+	var events []models.EventRace
+
+	err := r.db.Select(&events, sqlGetSXEventRaces, eventID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to get events race list")
 	}
 
 	return events, nil

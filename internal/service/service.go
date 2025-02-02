@@ -41,6 +41,7 @@ func (b *BotBackend) GetUpcomingEvents() ([]models.Event, error) {
 
 	return events, nil
 }
+
 func (b *BotBackend) GetCompletedEvents() ([]models.Event, error) {
 	events, err := b.repo.GetCompletedEvents()
 	if err != nil {
@@ -54,8 +55,21 @@ func (b *BotBackend) GetCompletedEvents() ([]models.Event, error) {
 	return events, nil
 }
 
-func (b *BotBackend) GetEventRacesResultByID(eventID int) ([]models.RaceResult, error) {
-	races, err := b.repo.GetEventResultByID(eventID)
+func (b *BotBackend) GetEventRaces(eventID int) ([]models.EventRace, error) {
+	events, err := b.repo.GetEventRaces(eventID)
+	if err != nil {
+		return nil, errors.Wrap(err, "bot: could not fetch event races")
+	}
+
+	if len(events) == 0 {
+		return nil, nil
+	}
+
+	return events, nil
+}
+
+func (b *BotBackend) GetEventRaceResultByDetails(eventID int, class, raceType string) ([]models.RaceResult, error) {
+	races, err := b.repo.GetRaceResultByDetails(eventID, class, raceType)
 	if err != nil {
 		b.log.Error("Failed to get event result", "error", err)
 		return nil, errors.New("could not fetch event result")

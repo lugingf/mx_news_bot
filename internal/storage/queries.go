@@ -8,7 +8,7 @@ const (
 `
 	sqlGetAllChampionships = `SELECT * FROM championships`
 
-	sqlGetSXEventResultByID = `
+	sqlGetSXEventResultByDetails = `
 SELECT 
     championships.championship_name AS champ_name,
     events.name AS event_name,
@@ -33,10 +33,23 @@ JOIN championships ON events.championship_id = championships.id
 JOIN riders ON riders.id = a.rider_id
 JOIN rider_teams ON a.rider_team_id = rider_teams.id
 WHERE a.championship_id = 1
-  AND a.race_type in ('Main Event', 'Race 1', 'Race 2', 'Race 3')
   AND events.id = $1
+  AND a.class = $2
+  AND a.race_type = $3
 ORDER BY a.class DESC, a.event_name, events.round_number, a.position;
+`
 
+	sqlGetSXEventRaces = `
+SELECT distinct events.id, a.class, a.race_type
+FROM ama_supercross_results a
+         JOIN events ON events.event_code = a.event_code
+         JOIN tracks ON events.track_id = tracks.id
+         JOIN championships ON events.championship_id = championships.id
+         JOIN riders ON riders.id = a.rider_id
+         JOIN rider_teams ON a.rider_team_id = rider_teams.id
+WHERE a.championship_id = 1
+  AND events.id = $1
+;
 `
 	sqlGetNextEventToCheck = `
 SELECT 
@@ -47,6 +60,7 @@ SELECT
     event_date 
 FROM events 
 WHERE event_status = 'upcoming' 
+AND event_date <= NOW()
 ORDER BY event_date LIMIT 1;
 	`
 

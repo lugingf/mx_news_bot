@@ -65,6 +65,12 @@ type EventToCheck struct {
 	Date           time.Time `db:"event_date"`
 }
 
+type EventRace struct {
+	EventID  int    `db:"id"`
+	Class    string `db:"class"`
+	RaceType string `db:"race_type"`
+}
+
 // UserPreference model representing user preferences such as default championship and notifications
 type UserPreference struct {
 	PreferenceID          int   `db:"preference_id"`

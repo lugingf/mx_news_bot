@@ -2,7 +2,6 @@ package bot
 
 import (
 	tele "gopkg.in/telebot.v3"
-	"strconv"
 	"strings"
 
 	md "mx_news_bot/internal/bot/middleware"
@@ -41,6 +40,7 @@ func (b *Bot) setupHandlers() {
 const (
 	uqShowAllEvents = "show_all_events"
 	uqEventPrefix   = "event_"
+	uqRacePrefix    = "race_"
 )
 
 // Middleware to handle inline button callbacks
@@ -53,12 +53,10 @@ func (b *Bot) setupInlineHandlers() {
 			return b.showAllEvents(c)
 
 		case strings.HasPrefix(data, uqEventPrefix):
-			eventID, err := strconv.Atoi(strings.TrimPrefix(data, uqEventPrefix))
-			if err != nil {
-				b.log.Error("Failed to parse event ID", "data", data, "error", err)
-				return c.Respond(&tele.CallbackResponse{Text: "Invalid event ID."})
-			}
-			return b.showEventDetails(c, eventID)
+			return b.showEventRaces(c, data)
+
+		case strings.HasPrefix(data, uqRacePrefix):
+
 		}
 
 		b.log.Error("Failed to determine callback", "data", data)
