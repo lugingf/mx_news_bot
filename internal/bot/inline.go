@@ -97,22 +97,32 @@ func (b *Bot) showEventRaces(c tele.Context, uqData string) error {
 	}
 
 	var inlineButtons [][]tele.InlineButton
-	var row []tele.InlineButton
 
-	for _, race := range races {
-		eventButton := tele.InlineButton{
-			Unique: fmt.Sprintf("%s%d_%s_%s", uqRacePrefix, race.EventID, race.Class, race.RaceType),
-			Text:   fmt.Sprintf("%s - %s", race.Class, race.RaceType),
-		}
-		row = append(row, eventButton)
-		if len(row) == 3 {
-			inlineButtons = append(inlineButtons, row)
-			row = nil
-		}
-	}
+	// Define the pattern: first row with 2 buttons, then 1, then 2, then 1, and repeat
+	pattern := []int{2, 1, 2, 1}
+	patternIndex := 0
+	i := 0
 
-	if len(row) > 0 {
+	for i < len(races) {
+		// Number of buttons in the current row according to the pattern
+		rowCount := pattern[patternIndex]
+		var row []tele.InlineButton
+
+		// Add up to rowCount buttons to the current row
+		for j := 0; j < rowCount && i < len(races); j++ {
+			race := races[i]
+			eventButton := tele.InlineButton{
+				Unique: fmt.Sprintf("%s%d_%s_%s", uqRacePrefix, race.EventID, race.Class, race.RaceType),
+				Text:   fmt.Sprintf("%s - %s", race.Class, race.RaceType),
+			}
+			row = append(row, eventButton)
+			i++
+		}
+
+		// Append the current row to the inline buttons slice
 		inlineButtons = append(inlineButtons, row)
+		// Move to the next pattern element, wrapping around if necessary
+		patternIndex = (patternIndex + 1) % len(pattern)
 	}
 
 	inlineMarkup := &tele.ReplyMarkup{InlineKeyboard: inlineButtons}
