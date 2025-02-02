@@ -2,9 +2,10 @@ package bot
 
 import (
 	"fmt"
-	tele "gopkg.in/telebot.v3"
 	"log/slog"
 	"sync"
+	
+	tele "gopkg.in/telebot.v3"
 
 	"mx_news_bot/config"
 	"mx_news_bot/internal/formatter"
@@ -28,17 +29,21 @@ func (b *Bot) Stop() {
 }
 
 func New(cfg *config.Bot, app *service.BotBackend, log *slog.Logger) *Bot {
+	var tls *tele.WebhookTLS
+	if !cfg.Local {
+		tls = &tele.WebhookTLS{
+			Cert: "/etc/letsencrypt/live/lugingfwebhookambot.com/fullchain.pem",
+			Key:  "/etc/letsencrypt/live/lugingfwebhookambot.com/privkey.pem",
+		}
+	}
 	botClient, err := tele.NewBot(tele.Settings{
 		Token: cfg.BotToken,
 		Poller: &tele.Webhook{
-			Listen: fmt.Sprintf("0.0.0.0:%s", cfg.Port),
+			Listen: fmt.Sprintf("0.0.0.0:%d", cfg.Port),
 			Endpoint: &tele.WebhookEndpoint{
 				PublicURL: cfg.HookUrl,
 			},
-			TLS: &tele.WebhookTLS{
-				Cert: "/etc/letsencrypt/live/lugingfwebhookambot.com/fullchain.pem",
-				Key:  "/etc/letsencrypt/live/lugingfwebhookambot.com/privkey.pem",
-			},
+			TLS: tls,
 		},
 		Verbose: cfg.BotVerbose,
 	})

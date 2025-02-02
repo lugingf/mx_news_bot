@@ -4,22 +4,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/robfig/cron/v3"
 	"log/slog"
+	"mx_news_bot/internal/downloader"
+	"mx_news_bot/internal/parser"
+	"mx_news_bot/internal/updater"
 	"net/http"
 	"os"
 	"os/signal"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/robfig/cron/v3"
-
 	"mx_news_bot/config"
 	"mx_news_bot/internal/bot"
-	"mx_news_bot/internal/downloader"
-	"mx_news_bot/internal/parser"
 	"mx_news_bot/internal/service"
 	"mx_news_bot/internal/storage"
-	"mx_news_bot/internal/updater"
 )
 
 func main() {

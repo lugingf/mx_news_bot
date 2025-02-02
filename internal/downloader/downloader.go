@@ -96,7 +96,9 @@ type raceSet struct {
 
 func (d *Downloader) getMainEvents(ctx context.Context, eventURL string) (raceSet, error) {
 	var links250, links250H1, links250H2 []string
+	var links250R1, links250R2, links250R3 []string
 	var links450, links450H1, links450H2 []string
+	var links450R1, links450R2, links450R3 []string
 
 	err := chromedp.Run(ctx,
 		chromedp.Navigate(eventURL),
@@ -104,10 +106,16 @@ func (d *Downloader) getMainEvents(ctx context.Context, eventURL string) (raceSe
 		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => a.textContent.includes('250 Main Event')).map(a => a.href)`, &links250),
 		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /250 Heat (\#?1)/.test(a.textContent)).map(a => a.href)`, &links250H1),
 		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /250 Heat (\#?2)/.test(a.textContent)).map(a => a.href)`, &links250H2),
+		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /250 Race (\#?1)/.test(a.textContent)).map(a => a.href)`, &links250R1),
+		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /250 Race (\#?2)/.test(a.textContent)).map(a => a.href)`, &links250R2),
+		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /250 Race (\#?3)/.test(a.textContent)).map(a => a.href)`, &links250R3),
 
 		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => a.textContent.includes('450 Main Event')).map(a => a.href)`, &links450),
 		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /450 Heat (\#?1)/.test(a.textContent)).map(a => a.href)`, &links450H1),
 		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /450 Heat (\#?2)/.test(a.textContent)).map(a => a.href)`, &links450H2),
+		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /450 Race (\#?1)/.test(a.textContent)).map(a => a.href)`, &links450R1),
+		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /450 Race (\#?2)/.test(a.textContent)).map(a => a.href)`, &links450R2),
+		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /450 Race (\#?3)/.test(a.textContent)).map(a => a.href)`, &links450R3),
 	)
 	if err != nil {
 		return raceSet{}, fmt.Errorf("failed to extract download links: %w", err)
@@ -118,9 +126,16 @@ func (d *Downloader) getMainEvents(ctx context.Context, eventURL string) (raceSe
 			"250 Main_Event": links250,
 			"250 Heat_1":     links250H1,
 			"250 Heat_2":     links250H2,
+			"250 Race#1":     links250R1,
+			"250 Race#2":     links250R2,
+			"250 Race#3":     links250R3,
+
 			"450 Main_Event": links450,
 			"450 Heat_1":     links450H1,
 			"450 Heat_2":     links450H2,
+			"450 Race#1":     links450R1,
+			"450 Race#2":     links450R2,
+			"450 Race#3":     links450R3,
 		},
 	}
 

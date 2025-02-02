@@ -33,10 +33,11 @@ type App struct {
 }
 
 type Bot struct {
-	Port       string `json:"port,required"`
+	Port       int    `json:"port,required"`
 	BotToken   string `json:"token,required"`
 	HookUrl    string `json:"hook,required"`
 	BotVerbose bool   `json:"verbose"`
+	Local      bool   `json:"local"`
 }
 
 type ChampionshipConfigs struct {
