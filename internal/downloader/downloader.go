@@ -31,14 +31,14 @@ func NewDownloader(baseURL, dataDir string, log *slog.Logger) *Downloader {
 }
 
 func (d *Downloader) DownloadEventFiles(ctx context.Context, eventName string) (int, error) {
-	ctxt, cancel := context.WithTimeout(ctx, 60*time.Second)
+	ctxt, cancel := context.WithTimeout(ctx, 300*time.Second)
 	defer cancel()
 
 	// Variable to store results
 	var eventsJSON string
 
 	// Step 1: Find the event by name and extract its link
-
+	d.log.Info("Visiting URL", "url", d.BaseURL)
 	err := chromedp.Run(ctxt,
 		chromedp.Navigate(d.BaseURL),
 		chromedp.WaitVisible(`table`, chromedp.ByQuery), // Ensure the table is visible

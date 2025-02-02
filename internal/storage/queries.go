@@ -33,9 +33,9 @@ JOIN championships ON events.championship_id = championships.id
 JOIN riders ON riders.id = a.rider_id
 JOIN rider_teams ON a.rider_team_id = rider_teams.id
 WHERE a.championship_id = 1
-  AND a.race_type = 'Main Event'
+  AND a.race_type in ('Main Event', 'Race 1', 'Race 2', 'Race 3')
   AND events.id = $1
-ORDER BY a.class DESC, events.round_number, a.position;
+ORDER BY a.class DESC, a.event_name, events.round_number, a.position;
 
 `
 	sqlGetNextEventToCheck = `
