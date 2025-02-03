@@ -34,7 +34,8 @@ func (c *SXChecker) Check() error {
 	if err != nil {
 		return errors.Wrap(err, "can't collect next event for download")
 	}
-	if event.ChampionshipID == "0" {
+
+	if event.ChampionshipID == "" {
 		c.log.Info("No next event to check")
 		return nil
 	}

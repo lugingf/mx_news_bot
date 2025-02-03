@@ -84,7 +84,7 @@ func (f *TgFormatter) FormatEventResultTable(event models.RaceResult) string {
 	builder.WriteString("*Race Results:*\n")
 	builder.WriteString("```\n")
 	builder.WriteString(fmt.Sprintf("%-3s | %-3s | %-20s | %-7s\n", "Pos", "#", "Rider", "Bike"))
-	builder.WriteString(strings.Repeat("-", 52) + "\n")
+	builder.WriteString(strings.Repeat("-", 45) + "\n")
 	for _, rider := range event.Results {
 		builder.WriteString(fmt.Sprintf(
 			"%-3s | %-3s | %-20s | %-7s\n",
