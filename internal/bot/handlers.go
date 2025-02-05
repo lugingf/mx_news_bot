@@ -38,7 +38,7 @@ func (b *Bot) showUpcomingEvents(c tele.Context) error {
 
 	for _, event := range events {
 		resultText := b.formatter.FormatUpcomingEvents(event)
-		err := c.Send(resultText)
+		err := c.Send(resultText, tele.ModeMarkdownV2)
 		if err != nil {
 			b.log.Error("Failed to send event", "error", err)
 			continue
