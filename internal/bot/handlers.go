@@ -2,7 +2,11 @@ package bot
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	tele "gopkg.in/telebot.v3"
+	"mx_news_bot/internal/models"
+	"os"
+	"path/filepath"
 )
 
 // startCmd - command to start bot and show main menu
@@ -31,9 +35,22 @@ func (b *Bot) showUpcomingEvents(c tele.Context) error {
 		return c.Send("Sorry, no upcoming events in next 10 days")
 	}
 
-	resultText := b.formatter.FormatUpcomingEvents(events)
+	for _, event := range events {
+		resultText := b.formatter.FormatUpcomingEvents(event)
+		err := c.Send(resultText)
+		if err != nil {
+			b.log.Error("Failed to send event", "error", err)
+			continue
+		}
 
-	return c.Send(resultText)
+		err = b.sendEventMaps(c, event)
+		if err != nil {
+			b.log.Error("Failed to send map pics", "error", err)
+			continue
+		}
+	}
+
+	return nil
 }
 
 func (b *Bot) handleSelectChampionshipForEvents(c tele.Context) error {
@@ -160,6 +177,40 @@ func (b *Bot) setDefaultChampionship(c tele.Context) error {
 
 	replyMarkup := &tele.ReplyMarkup{InlineKeyboard: buttonsToGrid(buttons, 2)}
 	return c.Send("Please select a championship to set as default:", replyMarkup)
+}
+
+func (b *Bot) sendEventMaps(c tele.Context, event models.Event) error {
+	// Build file name pattern, e.g. "Rd05*.png"
+	pattern := fmt.Sprintf("Rd%02d*.png", event.RoundNumber)
+	matches, err := filepath.Glob(fmt.Sprintf("./maps/SX/%d/%s", event.Date.Year(), pattern))
+	if err != nil {
+		b.log.Error("Error searching files", "pattern", pattern, "error", err)
+		return errors.Wrap(err, "searching files")
+	}
+
+	if len(matches) == 0 {
+		b.log.Info("No image files found for event", "pattern", pattern)
+		return nil
+	}
+
+	var album tele.Album
+	for _, fileName := range matches {
+		if _, err := os.Stat(fileName); os.IsNotExist(err) {
+			b.log.Error("File not found on disk", "file", fileName)
+			continue
+		}
+		photo := &tele.Photo{
+			File: tele.FromDisk(fileName),
+		}
+		album = append(album, photo)
+	}
+	if len(album) > 0 {
+		if err := c.SendAlbum(album); err != nil {
+			b.log.Error("Failed to send album", "error", err)
+		}
+	}
+
+	return nil
 }
 
 // Function to create a grid of buttons (helper for inline button layout)

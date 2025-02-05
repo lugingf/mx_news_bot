@@ -57,6 +57,7 @@ SELECT
     name, 
     events.classes, 
     round_number, 
+    event_format,
     event_date 
 FROM events 
 WHERE event_status = 'upcoming' 
@@ -74,6 +75,7 @@ SELECT
     e.round_number,
     e.track_id,
     e.event_date,
+    event_format,
     event_status
 FROM
     events e
@@ -97,6 +99,7 @@ SELECT
     e.round_number,
     e.track_id,
     e.event_date,
+    event_format,
     event_status
 FROM
     events e

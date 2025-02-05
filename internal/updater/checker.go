@@ -14,12 +14,12 @@ import (
 
 type SXChecker struct {
 	repo *storage.Repository
-	dwnl *dwn.Downloader
+	dwnl *dwn.AMASupercross
 	log  *slog.Logger
-	prsr *parser.Parser
+	prsr *parser.AMASupercross
 }
 
-func New(repo *storage.Repository, dwnl *dwn.Downloader, prsr *parser.Parser, log *slog.Logger) *SXChecker {
+func New(repo *storage.Repository, dwnl *dwn.AMASupercross, prsr *parser.AMASupercross, log *slog.Logger) *SXChecker {
 	return &SXChecker{
 		log:  log,
 		repo: repo,

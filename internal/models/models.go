@@ -54,6 +54,7 @@ type Event struct {
 	RoundNumber      string    `db:"round_number"`
 	TrackID          int       `db:"track_id"`
 	Date             time.Time `db:"event_date"`
+	Format           string    `db:"event_format"`
 	Status           string    `db:"event_status"` // upcoming or completed
 }
 
@@ -62,6 +63,7 @@ type EventToCheck struct {
 	Name           string    `db:"name"`
 	Classes        string    `db:"classes"`
 	RoundNumber    string    `db:"round_number"`
+	Format         string    `db:"event_format"`
 	Date           time.Time `db:"event_date"`
 }
 

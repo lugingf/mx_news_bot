@@ -15,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-type Downloader struct {
+type AMASupercross struct {
 	BaseURL string
 	DataDir string
 	log     *slog.Logger
@@ -26,39 +26,15 @@ type Event struct {
 	Link string `json:"link"`
 }
 
-func NewDownloader(baseURL, dataDir string, log *slog.Logger) *Downloader {
-	return &Downloader{BaseURL: baseURL, DataDir: dataDir, log: log}
+func NewDownloader(baseURL, dataDir string, log *slog.Logger) *AMASupercross {
+	return &AMASupercross{BaseURL: baseURL, DataDir: dataDir, log: log}
 }
 
-func (d *Downloader) DownloadEventFiles(ctx context.Context, eventName string) (int, error) {
+func (d *AMASupercross) DownloadEventFiles(ctx context.Context, eventName string) (int, error) {
 	ctxt, cancel := context.WithTimeout(ctx, 300*time.Second)
 	defer cancel()
 
-	// Variable to store results
-	var eventsJSON string
-
-	// Step 1: Find the event by name and extract its link
-	d.log.Info("Visiting URL", "url", d.BaseURL)
-	err := chromedp.Run(ctxt,
-		chromedp.Navigate(d.BaseURL),
-		chromedp.WaitVisible(`table`, chromedp.ByQuery), // Ensure the table is visible
-		chromedp.Evaluate(`JSON.stringify(Array.from(document.querySelectorAll('tbody tr')).map(row => {
-			const nameCell = row.querySelector('td a');
-			return {
-				name: nameCell ? nameCell.textContent.trim() : '',
-				link: nameCell ? nameCell.href : ''
-			};
-		}))`, &eventsJSON),
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to extract event links: %w", err)
-	}
-
-	// Parse the JSON result
-	var events []Event
-	if err := json.Unmarshal([]byte(eventsJSON), &events); err != nil {
-		return 0, fmt.Errorf("failed to parse JSON: %w", err)
-	}
+	events, err := d.getEventLinks(ctxt)
 
 	// Find the event with the given name
 	var eventURL string
@@ -75,8 +51,8 @@ func (d *Downloader) DownloadEventFiles(ctx context.Context, eventName string) (
 
 	fmt.Printf("Visiting event URL: %s\n", eventURL)
 
-	// Step 2: Visit the event page and separate links for "250 Main Event" and "450 Main Event"
-	races, err := d.getMainEvents(ctx, eventURL)
+	// Step 2: Visit the event page and separate links for every class and race
+	races, err := d.getRaces(ctx, eventURL)
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get main events")
 	}
@@ -97,11 +73,41 @@ func (d *Downloader) DownloadEventFiles(ctx context.Context, eventName string) (
 	return count, nil
 }
 
+func (d *AMASupercross) getEventLinks(ctx context.Context) ([]Event, error) {
+	// Variable to store results
+	var eventsJSON string
+
+	// Step 1: Find the event by name and extract its link
+	d.log.Info("Visiting URL", "url", d.BaseURL)
+	err := chromedp.Run(ctx,
+		chromedp.Navigate(d.BaseURL),
+		chromedp.WaitVisible(`table`, chromedp.ByQuery), // Ensure the table is visible
+		chromedp.Evaluate(`JSON.stringify(Array.from(document.querySelectorAll('tbody tr')).map(row => {
+			const nameCell = row.querySelector('td a');
+			return {
+				name: nameCell ? nameCell.textContent.trim() : '',
+				link: nameCell ? nameCell.href : ''
+			};
+		}))`, &eventsJSON),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract event links: %w", err)
+	}
+
+	// Parse the JSON result
+	var events []Event
+	if err := json.Unmarshal([]byte(eventsJSON), &events); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	return events, nil
+}
+
 type raceSet struct {
 	links map[string][]string
 }
 
-func (d *Downloader) getMainEvents(ctx context.Context, eventURL string) (raceSet, error) {
+func (d *AMASupercross) getRaces(ctx context.Context, eventURL string) (raceSet, error) {
 	var links250, links250H1, links250H2 []string
 	var links250R1, links250R2, links250R3 []string
 	var links450, links450H1, links450H2 []string
@@ -149,7 +155,7 @@ func (d *Downloader) getMainEvents(ctx context.Context, eventURL string) (raceSe
 	return result, nil
 }
 
-func (d *Downloader) download(link, race, eventName string) error {
+func (d *AMASupercross) download(link, race, eventName string) error {
 	// main event link contains "p=view_race_result"
 	if !strings.Contains(link, "p=view_race_result") {
 		fmt.Printf("Skipping link: %s (missing 'p=view_race_result')\n", link)
@@ -175,7 +181,7 @@ func (d *Downloader) download(link, race, eventName string) error {
 	return nil
 }
 
-func (d *Downloader) downloadFile(url, eventDir, fileName string) error {
+func (d *AMASupercross) downloadFile(url, eventDir, fileName string) error {
 	// Ensure the directory exists
 	err := os.MkdirAll(fmt.Sprintf("%s/%s", d.DataDir, eventDir), os.ModePerm)
 	if err != nil {
@@ -209,7 +215,7 @@ func (d *Downloader) downloadFile(url, eventDir, fileName string) error {
 	return nil
 }
 
-func (d *Downloader) getTitle(event string) (string, error) {
+func (d *AMASupercross) getTitle(event string) (string, error) {
 	parts := strings.Split(event, " ")
 	if len(parts) < 2 {
 		return "", errors.New("wrong race name")

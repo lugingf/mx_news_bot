@@ -33,7 +33,7 @@ const (
 	raceTypeRace3 = "Race 3"
 )
 
-type Parser struct {
+type AMASupercross struct {
 	repo   *storage.Repository
 	cfg    *Config
 	logger *slog.Logger
@@ -45,23 +45,23 @@ type Config struct {
 	OutputFile string
 }
 
-func New(r *storage.Repository, cfg *Config, l *slog.Logger) *Parser {
-	return &Parser{
+func New(r *storage.Repository, cfg *Config, l *slog.Logger) *AMASupercross {
+	return &AMASupercross{
 		repo:   r,
 		cfg:    cfg,
 		logger: l,
 	}
 }
 
-func (p *Parser) ParseFile(pdfFile string, event models.EventToCheck) (models.RaceResult, error) {
+func (p *AMASupercross) ParseFile(pdfFile string, event models.EventToCheck) (models.RaceResult, error) {
 	err := pdfconverter.ConvertPDFToText(pdfFile, p.cfg.OutputFile)
 	if err != nil {
-		return models.RaceResult{}, errors.Wrapf(err, "Ошибка при конвертации PDF в текст: %v", err)
+		return models.RaceResult{}, errors.Wrapf(err, "PDF to text convertation error: %v", err)
 	}
 
 	file, err := os.Open(p.cfg.OutputFile)
 	if err != nil {
-		return models.RaceResult{}, errors.Wrapf(err, "Ошибка при открытии файла текста: %v", err)
+		return models.RaceResult{}, errors.Wrapf(err, "txt file open error: %v", err)
 	}
 
 	defer file.Close()
@@ -77,7 +77,7 @@ func (p *Parser) ParseFile(pdfFile string, event models.EventToCheck) (models.Ra
 	return raceResult, nil
 }
 
-func (p *Parser) UploadRaceResult(raceResult models.RaceResult) error {
+func (p *AMASupercross) UploadRaceResult(raceResult models.RaceResult) error {
 	if p.cfg.DryRun {
 		return nil
 	}
@@ -92,7 +92,7 @@ func (p *Parser) UploadRaceResult(raceResult models.RaceResult) error {
 }
 
 // FIXME do it right
-func (p *Parser) getRoundNumber(fileName string, event models.EventToCheck) string {
+func (p *AMASupercross) getRoundNumber(fileName string, event models.EventToCheck) string {
 	if event.RoundNumber != "" {
 		return event.RoundNumber
 	}
@@ -112,7 +112,7 @@ func (p *Parser) getRoundNumber(fileName string, event models.EventToCheck) stri
 	return "0"
 }
 
-func (p *Parser) getRaceType(fileName string) string {
+func (p *AMASupercross) getRaceType(fileName string) string {
 	switch {
 	case strings.Contains(fileName, "Main_Event"):
 		return raceTypeMain
@@ -131,7 +131,7 @@ func (p *Parser) getRaceType(fileName string) string {
 	return "Undefined"
 }
 
-func (p *Parser) getRaceResult(pdfFile string, file io.Reader, event models.EventToCheck) (models.RaceResult, error) {
+func (p *AMASupercross) getRaceResult(pdfFile string, file io.Reader, event models.EventToCheck) (models.RaceResult, error) {
 	var raceResult models.RaceResult
 
 	raceResult.RaceType = p.getRaceType(pdfFile)
@@ -155,7 +155,7 @@ func (p *Parser) getRaceResult(pdfFile string, file io.Reader, event models.Even
 	return raceResult, nil
 }
 
-func (p *Parser) getEventCode(date time.Time, name, roundNum string) (string, error) {
+func (p *AMASupercross) getEventCode(date time.Time, name, roundNum string) (string, error) {
 	var prefix string
 	switch name {
 	case championshipSX:
@@ -180,7 +180,7 @@ func (p *Parser) getEventCode(date time.Time, name, roundNum string) (string, er
 	return fmt.Sprintf("%s%d%02d", prefix, lastTwoDigits, rN), nil
 }
 
-func (p *Parser) CollectFiles(eventNames []string) ([]string, error) {
+func (p *AMASupercross) CollectFiles(eventNames []string) ([]string, error) {
 	var filePaths []string
 
 	// Проходим по всем поддиректориям
@@ -211,7 +211,7 @@ func (p *Parser) CollectFiles(eventNames []string) ([]string, error) {
 	return filePaths, nil
 }
 
-func (p *Parser) inList(name string, list []string) bool {
+func (p *AMASupercross) inList(name string, list []string) bool {
 	for _, need := range list {
 		if strings.Contains(name, need) {
 			return true
@@ -222,7 +222,7 @@ func (p *Parser) inList(name string, list []string) bool {
 
 // Monster Energy AMA Supercross results parser
 
-func (p *Parser) parseTable(scanner *bufio.Scanner, result *models.RaceResult) error {
+func (p *AMASupercross) parseTable(scanner *bufio.Scanner, result *models.RaceResult) error {
 	parsers := map[int]func(string, *models.RaceResult) error{
 		1: p.parseCityTrack,
 		2: p.parseDate,
@@ -252,12 +252,12 @@ func (p *Parser) parseTable(scanner *bufio.Scanner, result *models.RaceResult) e
 	return nil
 }
 
-func (p *Parser) parseCityTrack(line string, result *models.RaceResult) error {
+func (p *AMASupercross) parseCityTrack(line string, result *models.RaceResult) error {
 	result.EventName = p.titleCaseWithExceptions(strings.ToLower(line))
 	return nil
 }
 
-func (p *Parser) parseDate(line string, result *models.RaceResult) error {
+func (p *AMASupercross) parseDate(line string, result *models.RaceResult) error {
 	// Example: "Jan 11, 2025"
 	layout := "Jan 2, 2006"
 	date, err := time.Parse(layout, p.capitalizeMonth(strings.ToLower(line)))
@@ -268,19 +268,19 @@ func (p *Parser) parseDate(line string, result *models.RaceResult) error {
 	return nil
 }
 
-func (p *Parser) parseClass(line string, result *models.RaceResult) error {
+func (p *AMASupercross) parseClass(line string, result *models.RaceResult) error {
 	result.Class = strings.Split(line, " ")[0] + "SX"
 	return nil
 }
 
-func (p *Parser) capitalizeMonth(input string) string {
+func (p *AMASupercross) capitalizeMonth(input string) string {
 	if len(input) == 0 {
 		return input
 	}
 	return string(input[0]-32) + input[1:]
 }
 
-func (p *Parser) titleCaseWithExceptions(input string) string {
+func (p *AMASupercross) titleCaseWithExceptions(input string) string {
 	words := strings.Fields(strings.ToLower(input)) // Приводим все к нижнему регистру
 	for i, word := range words {
 		if strings.ToUpper(word) == "AMA" { // Если слово "AMA", оставляем его в верхнем регистре
@@ -292,7 +292,7 @@ func (p *Parser) titleCaseWithExceptions(input string) string {
 	return strings.Join(words, " ")
 }
 
-func (p *Parser) parseRiders(scanner *bufio.Scanner, results *[]models.Rider) {
+func (p *AMASupercross) parseRiders(scanner *bufio.Scanner, results *[]models.Rider) {
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" || strings.HasPrefix(line, "Generated by") {
@@ -322,7 +322,7 @@ func (p *Parser) parseRiders(scanner *bufio.Scanner, results *[]models.Rider) {
 	}
 }
 
-func (p *Parser) splitByColumns(line string) map[string]string {
+func (p *AMASupercross) splitByColumns(line string) map[string]string {
 	fields := make(map[string]string)
 	currentField := strings.Builder{}
 	spaceCount := 0
@@ -362,7 +362,7 @@ func (p *Parser) splitByColumns(line string) map[string]string {
 	return fields
 }
 
-func (p *Parser) outputJSON(result models.RaceResult) {
+func (p *AMASupercross) outputJSON(result models.RaceResult) {
 	jsonData, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		slog.Error("marshaling error: %v", err)
