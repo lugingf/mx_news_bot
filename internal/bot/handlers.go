@@ -7,6 +7,7 @@ import (
 	"mx_news_bot/internal/models"
 	"os"
 	"path/filepath"
+	"strconv"
 )
 
 // startCmd - command to start bot and show main menu
@@ -181,7 +182,12 @@ func (b *Bot) setDefaultChampionship(c tele.Context) error {
 
 func (b *Bot) sendEventMaps(c tele.Context, event models.Event) error {
 	// Build file name pattern, e.g. "Rd05*.png"
-	pattern := fmt.Sprintf("Rd%02d*.png", event.RoundNumber)
+	rn, err := strconv.Atoi(event.RoundNumber)
+	if err != nil {
+		return errors.Wrap(err, "can't convert round number")
+	}
+
+	pattern := fmt.Sprintf("Rd%02d*.png", rn)
 	matches, err := filepath.Glob(fmt.Sprintf("./maps/SX/%d/%s", event.Date.Year(), pattern))
 	if err != nil {
 		b.log.Error("Error searching files", "pattern", pattern, "error", err)
