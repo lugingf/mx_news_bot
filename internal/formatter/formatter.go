@@ -29,12 +29,12 @@ func (f *TgFormatter) FormatUpcomingEvents(event models.Event) string {
 	var builder strings.Builder
 	builder.WriteString("🏁 *Upcoming Events* 🏁\n\n")
 	builder.WriteString(fmt.Sprintf(
-		`*%s \\- %s*
+		`*%s - %s*
 
 %s *Date %s*
 %s *Round*: %s
 %s *Staduim*: %s
-%s Format: %s
+%s *Format*: %s
 
 `,
 		event.Name, event.ChampionshipName,
