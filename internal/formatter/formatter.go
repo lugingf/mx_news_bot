@@ -42,31 +42,27 @@ func (f *TgFormatter) FormatEventsSchedule(events []models.Event) string {
 
 	// Loop through each event and build the formatted schedule
 	for _, event := range events {
-		sb.WriteString("• *")
-		sb.WriteString(event.Name)
-		sb.WriteString("*")
-		if event.Classes != "" {
-			sb.WriteString(" (")
-			sb.WriteString(event.Classes)
-			sb.WriteString(")")
-		}
-		sb.WriteString(" | ")
 		sb.WriteString(EmojiCalendar)
 		sb.WriteString(" ")
 		sb.WriteString(event.Date.Format("02 Jan 2006"))
-		sb.WriteString(" | ")
+		sb.WriteString("\n• ")
 		sb.WriteString(EmojiBowl)
+		sb.WriteString("*")
+		sb.WriteString(event.Name)
+		sb.WriteString("*")
 		sb.WriteString(" Round: ")
 		sb.WriteString(event.RoundNumber)
-		sb.WriteString(" | ")
-		sb.WriteString(EmojiPin)
-		sb.WriteString(" ")
-		sb.WriteString(event.Stadium)
 		sb.WriteString(" | ")
 		sb.WriteString(EmojiBook)
 		sb.WriteString(" ")
 		sb.WriteString(event.Format)
-		sb.WriteString("\n")
+		if event.Classes != "" {
+			sb.WriteString(" | ")
+			sb.WriteString(" (")
+			sb.WriteString(event.Classes)
+			sb.WriteString(")")
+		}
+		sb.WriteString("\n\n")
 	}
 
 	return sb.String()
