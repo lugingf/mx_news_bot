@@ -182,7 +182,7 @@ func (b *Bot) showChampClassesMenuStandings(c tele.Context, uqData string) error
 		}
 	}
 
-	replyMarkup := &tele.ReplyMarkup{InlineKeyboard: buttonsToGrid(buttons, 1)}
+	replyMarkup := &tele.ReplyMarkup{InlineKeyboard: buttonsToGrid(buttons, 2)}
 	return c.Send("Please select a class:", replyMarkup)
 }
 
@@ -207,5 +207,11 @@ func (b *Bot) showCurrentStandings(c tele.Context, uqData string) error {
 	}
 
 	resultText := b.formatter.FormatStandings(standings)
-	return c.Send(resultText, &tele.SendOptions{ParseMode: tele.ModeMarkdown})
+	err = c.Send(resultText, &tele.SendOptions{ParseMode: tele.ModeMarkdown})
+	if err != nil {
+		b.log.Error("Failed to send standings", "error", err)
+		return errors.Wrap(err, "failed to send standings")
+	}
+
+	return b.showChampClassesMenuStandings(c, fmt.Sprintf("%s%d", uqChampResultPrefix, id))
 }
