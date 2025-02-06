@@ -25,6 +25,7 @@ const (
 		SELECT DISTINCT 
 			sr.class, 
 			CASE 
+				WHEN sr.class = '450SX' THEN ''
 				WHEN e.classes ILIKE '%East%' THEN 'East'
 				WHEN e.classes ILIKE '%West%' THEN 'West'
 				ELSE ''
