@@ -37,13 +37,13 @@ func (b *Bot) showChampionshipScheduleFromNow(c tele.Context, uqData string) err
 
 	id, err := strconv.Atoi(noPref)
 	if err != nil {
-		b.log.Error("Bad unique ID data part", "unique_id", noPref)
+		b.log.Error("Bad unique ID data part", "unique_id", noPref, "error", err)
 		return c.Respond(&tele.CallbackResponse{Text: "Sorry. Race data corrupted. We'll fix it soon"})
 	}
 
 	events, err := b.app.GetChampEvents(id)
 	if err != nil {
-		b.log.Error("Can't get champ events", "unique_id", noPref)
+		b.log.Error("Can't get champ events", "unique_id", noPref, "error", err)
 		return c.Respond(&tele.CallbackResponse{Text: "Sorry. Data corrupted. We'll fix it soon"})
 	}
 
