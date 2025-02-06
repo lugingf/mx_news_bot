@@ -33,6 +33,7 @@ func (f *TgFormatter) FormatStandings(standings []models.Standing) string {
 
 	var sb strings.Builder
 
+	sb.WriteString("```\n")
 	sb.WriteString(fmt.Sprintf("%s Championship Standings %s\n", EmojiBowl, EmojiBowl))
 	sb.WriteString(strings.Repeat("=", 40) + "\n\n")
 
@@ -47,8 +48,7 @@ func (f *TgFormatter) FormatStandings(standings []models.Standing) string {
 		}
 	}
 
-	// Подвал таблицы.
-	sb.WriteString("\n" + EmojiScroll + " Official Standings\n")
+	sb.WriteString("```")
 
 	return sb.String()
 }
