@@ -178,7 +178,7 @@ func (b *Bot) showChampClassesMenuStandings(c tele.Context, uqData string) error
 	for i, class := range classes {
 		buttons[i] = tele.InlineButton{
 			Text:   class,
-			Unique: fmt.Sprintf("%s%d_%d", uqChampClassResultPrefix, id, class),
+			Unique: fmt.Sprintf("%s%d_%s", uqChampClassResultPrefix, id, class),
 		}
 	}
 

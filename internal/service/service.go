@@ -51,12 +51,7 @@ func (b *BotBackend) GetChampionshipsWithRaces() ([]models.Championship, error) 
 }
 
 func (b *BotBackend) GetCurrentStandings(champID int, class string) ([]models.Standing, error) {
-	currentChampionship, err := b.repo.GetCurrentChampionship(champID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get current championship: %w", err)
-	}
-
-	events, err := b.repo.GetCompletedEventsByChampionship(currentChampionship.ID)
+	events, err := b.repo.GetCompletedEventsByChampionship(champID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get completed events: %w", err)
 	}
@@ -85,7 +80,7 @@ func (b *BotBackend) GetCurrentStandings(champID int, class string) ([]models.St
 						return nil, fmt.Errorf("failed to convert position %q to int: %w", rider.Position, err)
 					}
 
-					points, err := b.repo.GetPointsForPosition(currentChampionship.ID, pos)
+					points, err := b.repo.GetPointsForPosition(champID, pos)
 					if err != nil {
 						return nil, fmt.Errorf("failed to get points for position %d: %w", pos, err)
 					}
@@ -133,7 +128,7 @@ func (b *BotBackend) GetCurrentStandings(champID int, class string) ([]models.St
 			for rank, rs := range scores {
 				// Ranking is one-indexed.
 				rankPosition := rank + 1
-				points, err := b.repo.GetPointsForPosition(currentChampionship.ID, rankPosition)
+				points, err := b.repo.GetPointsForPosition(champID, rankPosition)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get points for rank %d: %w", rankPosition, err)
 				}
