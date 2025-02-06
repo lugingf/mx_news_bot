@@ -311,9 +311,9 @@ func (r *Repository) GetCompletedEventsByChampionship(champID int) ([]models.Eve
 	// Adjust the query according to your schema.
 	var events []models.Event
 	query := `
-		SELECT e.id, e.championship_name, e.name, e.classes, e.venue_name, e.round_number, e.track_id, e.event_date, e.event_format, e.event_status
+		SELECT e.id, c.championship_name, e.name, e.classes, e.venue_name, e.round_number, e.track_id, e.event_date, e.event_format, e.event_status
 		FROM events e
-		INNER JOIN championships c ON c.championship_name = e.championship_name
+		INNER JOIN championships c ON c.id = e.championship_id
 		WHERE c.id = $1 AND e.event_status = 'completed'
 	`
 	err := r.db.Select(&events, query, champID)
