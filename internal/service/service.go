@@ -61,7 +61,7 @@ func (b *BotBackend) GetCurrentStandings(champID int, class string) ([]models.St
 		return nil, fmt.Errorf("failed to get completed events: %w", err)
 	}
 
-	b.log.Info("Got events for current championship", "champ_id", champID, "event_count", len(events))
+	b.log.Info("Got events for current championship", "champ_id", champID, "class", class, "event_count", len(events))
 
 	// Use rider name as the unique identifier.
 	riderPoints := make(map[string]int)
