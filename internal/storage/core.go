@@ -117,7 +117,7 @@ func (r *Repository) GetRaceResultByDetails(eventID int, class, raceType string)
 			&raceResult.Class,
 			&rider.Position,
 			&rider.RiderNumber,
-			&rider.Rider,
+			&rider.Name,
 			&rider.Bike,
 			&rider.Team,
 		)
@@ -246,7 +246,7 @@ func (r *Repository) UploadRaceResultsSMX(result models.RaceResult) error {
 	for _, rider := range result.Results {
 		// Insert rider if not exists
 		riderID := 0
-		err = tx.Get(&riderID, insertRiderQuery, rider.Rider)
+		err = tx.Get(&riderID, insertRiderQuery, rider.Name)
 		if err != nil {
 			return errors.Wrap(err, "failed to insert rider")
 		}
@@ -271,6 +271,54 @@ func (r *Repository) UploadRaceResultsSMX(result models.RaceResult) error {
 	return nil
 }
 
-func getEventCode() {
+// GetPointsForPosition returns the championship points for a given finishing position
+// by querying the points_distribution table.
+func (r *Repository) GetPointsForPosition(championshipID int, position int) (int, error) {
+	var points int
+	query := `SELECT points FROM points_distribution WHERE championship_id = $1 AND position = $2`
+	err := r.db.Get(&points, query, championshipID, position)
+	if err != nil {
+		return 0, err
+	}
+	return points, nil
+}
 
+// The following two methods are assumed to exist. If they are not available,
+// you need to implement them according to your database schema.
+
+// GetCurrentChampionship retrieves the current championship.
+func (r *Repository) GetCurrentChampionship(champID int) (*models.Championship, error) {
+	// For example, one might query by current season.
+	// Adjust the query as needed.
+	var champ models.Championship
+	query := `
+SELECT id, championship_name, class_names, season_year 
+	FROM championships 
+	WHERE season_year = EXTRACT(YEAR FROM CURRENT_DATE)
+	AND id = $1
+	LIMIT 1
+;
+`
+	err := r.db.Get(&champ, query, champID)
+	if err != nil {
+		return nil, err
+	}
+	return &champ, nil
+}
+
+// GetCompletedEventsByChampionship retrieves all completed events for a given championship.
+func (r *Repository) GetCompletedEventsByChampionship(champID int) ([]models.Event, error) {
+	// Adjust the query according to your schema.
+	var events []models.Event
+	query := `
+		SELECT e.id, e.championship_name, e.name, e.classes, e.venue_name, e.round_number, e.track_id, e.event_date, e.event_format, e.event_status
+		FROM events e
+		INNER JOIN championships c ON c.championship_name = e.championship_name
+		WHERE c.id = $1 AND e.event_status = 'completed'
+	`
+	err := r.db.Select(&events, query, champID)
+	if err != nil {
+		return nil, err
+	}
+	return events, nil
 }

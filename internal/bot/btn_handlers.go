@@ -2,6 +2,7 @@ package bot
 
 import (
 	"fmt"
+	"mx_news_bot/internal/formatter"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -76,13 +77,14 @@ func (b *Bot) handleSelectChampionshipForEvents(c tele.Context) error {
 }
 
 func (b *Bot) showCurrentStandingsMenu(c tele.Context) error {
-	replyMarkup := &tele.ReplyMarkup{
-		ReplyKeyboard: [][]tele.ReplyButton{
-			{tele.ReplyButton{Text: ButtonChampionshipSchedules}},
-			{tele.ReplyButton{Text: ButtonBackToMainMenu}},
-		}, ResizeKeyboard: true,
+	standings, err := b.app.GetCurrentStandings(1)
+	if err != nil {
+		b.log.Error("Failed to prepare standings", "error", err)
+		return c.Send("Unable to prepare standings at the moment.")
 	}
-	return c.Send(ButtonCurrentStandings, replyMarkup)
+
+	resultText := b.formatter.FormatStandings(standings)
+	return c.Send(resultText, &tele.SendOptions{ParseMode: tele.ModeMarkdown})
 }
 
 func (b *Bot) showChampionshipSchedulesMenu(c tele.Context) error {
@@ -115,12 +117,12 @@ func (b *Bot) showEventResults(c tele.Context) error {
 	var inlineButtons [][]tele.InlineButton
 
 	for i, event := range events {
-		if i >= maxVisibleEvents {
+		if i > maxVisibleEvents {
 			break
 		}
 		eventButton := tele.InlineButton{
 			Unique: fmt.Sprintf("%s%d", uqEventPrefix, event.ID),
-			Text:   fmt.Sprintf("%s (%s)", event.Name, event.Date.Format("02.01.2006")),
+			Text:   fmt.Sprintf("%s %s (%s)", formatter.EmojiBowl, event.Name, event.Date.Format("02 Jan 2006")),
 		}
 		inlineButtons = append(inlineButtons, []tele.InlineButton{eventButton})
 	}
@@ -136,7 +138,7 @@ func (b *Bot) showEventResults(c tele.Context) error {
 	b.log.Info("Showing event results", "events", events, "buttons", inlineButtons)
 
 	inlineMarkup := &tele.ReplyMarkup{InlineKeyboard: inlineButtons}
-	return c.Send("Select an event to see the results:", inlineMarkup)
+	return c.Send(fmt.Sprintf("%s Select an event to see the results:", formatter.EmojiScroll), inlineMarkup)
 }
 
 func (b *Bot) showPointsDistributionMenu(c tele.Context) error {

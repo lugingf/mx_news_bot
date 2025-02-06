@@ -53,13 +53,13 @@ type RaceResult struct {
 	Round       string  json:"round"
 	TotalRounds string  json:"total_rounds"
 	Class       string  json:"class"
-	Results     []Rider json:"results"
+	Results     []Name json:"results"
 }
 
-type Rider struct {
+type Name struct {
 	Position    string json:"pos"
 	RiderNumber string  json:"rider_number"
-	Rider       string json:"rider"
+	Name       string json:"rider"
 	Hometown    string json:"hometown"
 	Bike        string json:"bike"
 	Team        string json:"team"

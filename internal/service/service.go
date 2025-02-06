@@ -1,8 +1,10 @@
 package service
 
 import (
+	"fmt"
 	"log/slog"
 	"sort"
+	"strconv"
 
 	"github.com/pkg/errors"
 
@@ -27,6 +29,122 @@ func (b *BotBackend) GetAllChampionships() ([]models.Championship, error) {
 		return nil, errors.Wrap(err, "bot: could not get all championships")
 	}
 	return championships, nil
+}
+
+func (b *BotBackend) GetCurrentStandings(champID int) ([]models.Standing, error) {
+	currentChampionship, err := b.repo.GetCurrentChampionship(champID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current championship: %w", err)
+	}
+
+	events, err := b.repo.GetCompletedEventsByChampionship(currentChampionship.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get completed events: %w", err)
+	}
+
+	// Use rider name as the unique identifier.
+	riderPoints := make(map[string]int)
+	// This map stores the rider names (the key is the rider's name itself).
+	riderNames := make(map[string]string)
+
+	// Process each event.
+	for _, event := range events {
+		switch event.Format {
+		case "Standart":
+			// For standard events, use the finishing positions from the main race.
+			resultsMap, err := b.repo.GetRaceResultByDetails(event.ID, event.Classes, "Main Event")
+			if err != nil {
+				return nil, fmt.Errorf("failed to get race result for event %d: %w", event.ID, err)
+			}
+
+			for _, raceResult := range resultsMap {
+				for _, rider := range raceResult.Results {
+					pos, err := strconv.Atoi(rider.Position)
+					if err != nil {
+						return nil, fmt.Errorf("failed to convert position %q to int: %w", rider.Position, err)
+					}
+
+					points, err := b.repo.GetPointsForPosition(currentChampionship.ID, pos)
+					if err != nil {
+						return nil, fmt.Errorf("failed to get points for position %d: %w", pos, err)
+					}
+
+					riderPoints[rider.Name] += points
+					riderNames[rider.Name] = rider.Name
+				}
+			}
+
+		case "Tripple Crown":
+			// For Tripple Crown events, aggregate finishing positions from three races.
+			sumPositions := make(map[string]int)
+			for _, raceType := range []string{"Race 1", "Race 2", "Race 3"} {
+				resultsMap, err := b.repo.GetRaceResultByDetails(event.ID, event.Classes, raceType)
+				if err != nil {
+					return nil, fmt.Errorf("failed to get race result for event %d race type %s: %w", event.ID, raceType, err)
+				}
+				for _, raceResult := range resultsMap {
+					for _, rider := range raceResult.Results {
+						pos, err := strconv.Atoi(rider.Position)
+						if err != nil {
+							return nil, fmt.Errorf("failed to convert position %q to int: %w", rider.Position, err)
+						}
+
+						sumPositions[rider.Name] += pos
+						riderNames[rider.Name] = rider.Name
+					}
+				}
+			}
+
+			// Create a slice to rank riders based on the sum of finishing positions (lower is better).
+			type riderScore struct {
+				Name string
+				Sum  int
+			}
+			var scores []riderScore
+			for name, sum := range sumPositions {
+				scores = append(scores, riderScore{Name: name, Sum: sum})
+			}
+			sort.Slice(scores, func(i, j int) bool {
+				return scores[i].Sum < scores[j].Sum
+			})
+
+			// Assign championship points based on the ranking.
+			for rank, rs := range scores {
+				// Ranking is one-indexed.
+				rankPosition := rank + 1
+				points, err := b.repo.GetPointsForPosition(currentChampionship.ID, rankPosition)
+				if err != nil {
+					return nil, fmt.Errorf("failed to get points for rank %d: %w", rankPosition, err)
+				}
+
+				riderPoints[rs.Name] += points
+			}
+
+		default:
+			// Skip events with unknown format.
+			b.log.Info(fmt.Sprintf("Skipping event %d with unknown format: %s", event.ID, event.Format))
+		}
+	}
+
+	// Build and sort the overall standings by total championship points (descending).
+	var standings []models.Standing
+	for name, pts := range riderPoints {
+		standings = append(standings, models.Standing{
+			RiderName: name,
+			Points:    pts,
+		})
+	}
+
+	sort.Slice(standings, func(i, j int) bool {
+		return standings[i].Points > standings[j].Points
+	})
+
+	b.log.Info("Current Championship Standings:")
+	for pos, s := range standings {
+		b.log.Info(fmt.Sprintf("%d. %s - %d points", pos+1, s.RiderName, s.Points))
+	}
+
+	return standings, nil
 }
 
 func (b *BotBackend) GetUpcomingEvents() ([]models.Event, error) {

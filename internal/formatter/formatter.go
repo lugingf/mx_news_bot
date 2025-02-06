@@ -13,6 +13,7 @@ const (
 	EmojiPin      = "📍"
 	EmojiBook     = "📖"
 	EmojiFlag     = "🏁"
+	EmojiScroll   = "📜"
 )
 
 type TgFormatter struct{}
@@ -23,6 +24,33 @@ func NewTelegram() *TgFormatter {
 
 func (f *TgFormatter) FormatErrorMessage(message string) string {
 	return EmojiError + " " + message
+}
+
+func (f *TgFormatter) FormatStandings(standings []models.Standing) string {
+	if len(standings) == 0 {
+		return EmojiError + " No standings data available."
+	}
+
+	var sb strings.Builder
+
+	sb.WriteString(fmt.Sprintf("%s Championship Standings %s\n", EmojiBowl, EmojiBowl))
+	sb.WriteString(strings.Repeat("=", 40) + "\n\n")
+
+	sb.WriteString(fmt.Sprintf("%-3s | %-20s | %-6s\n", "#", "Rider", "Points"))
+	sb.WriteString(strings.Repeat("-", 40) + "\n")
+
+	for i, s := range standings {
+		if i == 0 {
+			sb.WriteString(fmt.Sprintf("%-3d | %-20s | %-6d %s\n", i+1, s.RiderName, s.Points, EmojiFlag))
+		} else {
+			sb.WriteString(fmt.Sprintf("%-3d | %-20s | %-6d\n", i+1, s.RiderName, s.Points))
+		}
+	}
+
+	// Подвал таблицы.
+	sb.WriteString("\n" + EmojiScroll + " Official Standings\n")
+
+	return sb.String()
 }
 
 func (f *TgFormatter) FormatEventsSchedule(events []models.Event) string {
@@ -121,12 +149,12 @@ func (f *TgFormatter) FormatEventResultTable(event models.RaceResult) string {
 
 	builder.WriteString("*Race Results:*\n")
 	builder.WriteString("```\n")
-	builder.WriteString(fmt.Sprintf("%-3s | %-3s | %-20s | %-7s\n", "Pos", "#", "Rider", "Bike"))
+	builder.WriteString(fmt.Sprintf("%-3s | %-3s | %-20s | %-7s\n", "Pos", "#", "Name", "Bike"))
 	builder.WriteString(strings.Repeat("-", 45) + "\n")
 	for _, rider := range event.Results {
 		builder.WriteString(fmt.Sprintf(
 			"%-3s | %-3s | %-20s | %-7s\n",
-			rider.Position, rider.RiderNumber, rider.Rider, rider.Bike,
+			rider.Position, rider.RiderNumber, rider.Name, rider.Bike,
 		))
 	}
 	builder.WriteString("```\n")

@@ -37,7 +37,7 @@ func (b *Bot) showChampionshipScheduleFromNow(c tele.Context, uqData string) err
 
 	id, err := strconv.Atoi(noPref)
 	if err != nil {
-		b.log.Error("Bad unique ID data part", "unique_id", noPref, "error", err)
+		b.log.Error("Bad unique Name data part", "unique_id", noPref, "error", err)
 		return c.Respond(&tele.CallbackResponse{Text: "Sorry. Race data corrupted. We'll fix it soon"})
 	}
 
@@ -72,7 +72,7 @@ func (b *Bot) showEventRaceResult(c tele.Context, uqData string) error {
 
 	id, err := strconv.Atoi(parts[0])
 	if err != nil {
-		b.log.Error("Bad unique ID data part", "unique_id", parts[0])
+		b.log.Error("Bad unique Name data part", "unique_id", parts[0])
 		return c.Respond(&tele.CallbackResponse{Text: "Sorry. Race data corrupted. We'll fix it soon"})
 	}
 
@@ -111,8 +111,8 @@ func (b *Bot) showEventRaceResult(c tele.Context, uqData string) error {
 func (b *Bot) showEventRaces(c tele.Context, uqData string) error {
 	eventID, err := strconv.Atoi(strings.TrimPrefix(uqData, uqEventPrefix))
 	if err != nil {
-		b.log.Error("Failed to parse event ID", "data", uqData, "error", err)
-		return c.Respond(&tele.CallbackResponse{Text: "Invalid event ID."})
+		b.log.Error("Failed to parse event Name", "data", uqData, "error", err)
+		return c.Respond(&tele.CallbackResponse{Text: "Invalid event Name."})
 	}
 
 	races, err := b.app.GetEventRaces(eventID)

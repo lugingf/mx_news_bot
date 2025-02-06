@@ -269,7 +269,7 @@ func parseRiders(scanner *bufio.Scanner, results *[]models.Rider) {
 		*results = append(*results, models.Rider{
 			Position:    strings.TrimSpace(fields["POS"]),
 			RiderNumber: strings.TrimSpace(fields["NUMBER"]),
-			Rider:       strings.TrimSpace(fields["RIDER"]),
+			Name:        strings.TrimSpace(fields["RIDER"]),
 			Hometown:    strings.TrimSpace(fields["HOMETOWN"]),
 			Bike:        strings.TrimSpace(fields["BIKE"]),
 			Team:        strings.TrimSpace(team),

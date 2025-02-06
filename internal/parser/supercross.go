@@ -314,7 +314,7 @@ func (p *AMASupercross) parseRiders(scanner *bufio.Scanner, results *[]models.Ri
 		*results = append(*results, models.Rider{
 			Position:    strings.TrimSpace(fields["POS"]),
 			RiderNumber: strings.TrimSpace(fields["NUMBER"]),
-			Rider:       strings.TrimSuffix(strings.TrimSpace(fields["RIDER"]), " (HS)"),
+			Name:        strings.TrimSuffix(strings.TrimSpace(fields["RIDER"]), " (HS)"),
 			Hometown:    strings.TrimSpace(fields["HOMETOWN"]),
 			Bike:        strings.TrimSpace(fields["BIKE"]),
 			Team:        strings.TrimSpace(team),

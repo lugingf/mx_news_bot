@@ -145,7 +145,7 @@ type APIError struct {
 	Details json.RawMessage `json:"details"`
 }
 
-// сreateCompletion sends a request to the completion API and returns the operation ID
+// сreateCompletion sends a request to the completion API and returns the operation Name
 func (c *APIClient) createCompletion(req *CompletionRequest) (string, error) {
 	url := c.BaseURL + "/foundationModels/v1/completionAsync"
 	jsonData, err := json.Marshal(req)

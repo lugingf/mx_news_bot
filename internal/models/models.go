@@ -30,7 +30,7 @@ type RaceResult struct {
 type Rider struct {
 	Position    string `json:"pos"`
 	RiderNumber string `json:"rider_number"`
-	Rider       string `json:"rider"`
+	Name        string `json:"rider"`
 	Hometown    string `json:"hometown"`
 	Bike        string `json:"bike"`
 	Team        string `json:"team"`
@@ -71,6 +71,11 @@ type EventRace struct {
 	EventID  int    `db:"id"`
 	Class    string `db:"class"`
 	RaceType string `db:"race_type"`
+}
+
+type Standing struct {
+	RiderName string
+	Points    int
 }
 
 // UserPreference model representing user preferences such as default championship and notifications
