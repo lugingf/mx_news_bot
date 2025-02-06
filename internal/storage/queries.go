@@ -114,7 +114,7 @@ FROM
     tracks t ON e.track_id = t.id
 WHERE
     c.id = $1 AND
-    e.event_date => now()
+    e.event_date >= now()
 ORDER BY
     e.event_date ASC;
 	`
