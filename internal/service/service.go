@@ -50,7 +50,7 @@ func (b *BotBackend) GetCurrentStandings(champID int) ([]models.Standing, error)
 	// Process each event.
 	for _, event := range events {
 		switch event.Format {
-		case "Standart":
+		case "Standard":
 			// For standard events, use the finishing positions from the main race.
 			resultsMap, err := b.repo.GetRaceResultByDetails(event.ID, event.Classes, "Main Event")
 			if err != nil {
@@ -74,7 +74,7 @@ func (b *BotBackend) GetCurrentStandings(champID int) ([]models.Standing, error)
 				}
 			}
 
-		case "Tripple Crown":
+		case "Triple Crown":
 			// For Tripple Crown events, aggregate finishing positions from three races.
 			sumPositions := make(map[string]int)
 			for _, raceType := range []string{"Race 1", "Race 2", "Race 3"} {
