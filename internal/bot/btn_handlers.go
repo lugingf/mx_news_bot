@@ -77,7 +77,7 @@ func (b *Bot) handleSelectChampionshipForEvents(c tele.Context) error {
 }
 
 func (b *Bot) showCurrentStandingsMenu(c tele.Context) error {
-	standings, err := b.app.GetCurrentStandings(1)
+	standings, err := b.app.GetCurrentStandings(1, "450SX")
 	if err != nil {
 		b.log.Error("Failed to prepare standings", "error", err)
 		return c.Send("Unable to prepare standings at the moment.")

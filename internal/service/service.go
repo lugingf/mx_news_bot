@@ -31,7 +31,7 @@ func (b *BotBackend) GetAllChampionships() ([]models.Championship, error) {
 	return championships, nil
 }
 
-func (b *BotBackend) GetCurrentStandings(champID int) ([]models.Standing, error) {
+func (b *BotBackend) GetCurrentStandings(champID int, class string) ([]models.Standing, error) {
 	currentChampionship, err := b.repo.GetCurrentChampionship(champID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current championship: %w", err)
@@ -54,7 +54,7 @@ func (b *BotBackend) GetCurrentStandings(champID int) ([]models.Standing, error)
 		switch event.Format {
 		case "Standard":
 			// For standard events, use the finishing positions from the main race.
-			resultsMap, err := b.repo.GetRaceResultByDetails(event.ID, event.Classes, "Main Event")
+			resultsMap, err := b.repo.GetRaceResultByDetails(event.ID, class, storage.RaceTypeMainEvent)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get race result for event %d: %w", event.ID, err)
 			}
@@ -79,8 +79,8 @@ func (b *BotBackend) GetCurrentStandings(champID int) ([]models.Standing, error)
 		case "Triple Crown":
 			// For Tripple Crown events, aggregate finishing positions from three races.
 			sumPositions := make(map[string]int)
-			for _, raceType := range []string{"Race 1", "Race 2", "Race 3"} {
-				resultsMap, err := b.repo.GetRaceResultByDetails(event.ID, event.Classes, raceType)
+			for _, raceType := range []string{storage.RaceTypeRace1, storage.RaceTypeRace2, storage.RaceTypeRace3} {
+				resultsMap, err := b.repo.GetRaceResultByDetails(event.ID, class, raceType)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get race result for event %d race type %s: %w", event.ID, raceType, err)
 				}

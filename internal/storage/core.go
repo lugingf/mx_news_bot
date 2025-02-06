@@ -21,6 +21,13 @@ type Repository struct {
 
 const eventStatusCompleted = "completed"
 
+const (
+	RaceTypeMainEvent = "Main Event"
+	RaceTypeRace1     = "Race 1"
+	RaceTypeRace2     = "Race 2"
+	RaceTypeRace3     = "Race 3"
+)
+
 // New initializes a new Repository instance
 func New(db *sqlx.DB, log *slog.Logger) *Repository {
 	return &Repository{db: db, log: log}
