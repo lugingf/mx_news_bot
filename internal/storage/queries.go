@@ -6,7 +6,12 @@ const (
 		FROM users 
 		WHERE tg_user_id = $1;
 `
-	sqlGetAllChampionships = `SELECT * FROM championships`
+	sqlGetAllChampionships = `
+	SELECT id, championship_name, class_names, season_year 
+		FROM championships 
+		WHERE season_year = $1
+	;
+`
 
 	sqlGetSXEventResultByDetails = `
 SELECT 
@@ -85,6 +90,31 @@ FROM
     tracks t ON e.track_id = t.id
 WHERE
     e.event_date BETWEEN now() AND now() + interval '8 days'
+ORDER BY
+    e.event_date ASC;
+	`
+
+	sqlGetEventsByChampIDFromNow = `
+SELECT
+    e.id,
+    c.championship_name,
+    e.name,
+    e.classes,
+    e.venue_name,
+    e.round_number,
+    e.track_id,
+    e.event_date,
+    event_format,
+    event_status
+FROM
+    events e
+        JOIN
+    championships c ON e.championship_id = c.id
+        LEFT JOIN
+    tracks t ON e.track_id = t.id
+WHERE
+    c.id = $1 AND
+    e.event_date => now()
 ORDER BY
     e.event_date ASC;
 	`

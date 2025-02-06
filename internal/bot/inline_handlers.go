@@ -2,6 +2,7 @@ package bot
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"strconv"
 	"strings"
 
@@ -29,6 +30,35 @@ func (b *Bot) showAllEvents(c tele.Context) error {
 
 	inlineMarkup := &tele.ReplyMarkup{InlineKeyboard: inlineButtons}
 	return c.Edit("All events:", inlineMarkup)
+}
+
+func (b *Bot) showChampionshipScheduleFromNow(c tele.Context, uqData string) error {
+	noPref := strings.TrimPrefix(uqData, uqChampSchedulePrefix)
+
+	id, err := strconv.Atoi(noPref)
+	if err != nil {
+		b.log.Error("Bad unique ID data part", "unique_id", noPref)
+		return c.Respond(&tele.CallbackResponse{Text: "Sorry. Race data corrupted. We'll fix it soon"})
+	}
+
+	events, err := b.app.GetChampEvents(id)
+	if err != nil {
+		b.log.Error("Can't get champ events", "unique_id", noPref)
+		return c.Respond(&tele.CallbackResponse{Text: "Sorry. Data corrupted. We'll fix it soon"})
+	}
+
+	resultText := b.formatter.FormatEventsSchedule(events)
+	err = c.Send(resultText, &tele.SendOptions{ParseMode: tele.ModeMarkdown})
+	if err != nil {
+		b.log.Error("Failed to send event schedule", "error", err)
+		return errors.Wrap(err, "failed to send event schedule")
+	}
+
+	return nil
+}
+
+func (b *Bot) showChampionshipScheduleFull(c tele.Context, uqData string) error {
+	return nil
 }
 
 // showEventRaceResult shows the details of a specific event

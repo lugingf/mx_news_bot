@@ -42,6 +42,19 @@ func (b *BotBackend) GetUpcomingEvents() ([]models.Event, error) {
 	return events, nil
 }
 
+func (b *BotBackend) GetChampEvents(champID int) ([]models.Event, error) {
+	events, err := b.repo.GetChampEventsFromNow(champID)
+	if err != nil {
+		return nil, errors.Wrap(err, "bot: could not fetch upcoming events")
+	}
+
+	if len(events) == 0 {
+		return nil, nil
+	}
+
+	return events, nil
+}
+
 func (b *BotBackend) GetCompletedEvents() ([]models.Event, error) {
 	events, err := b.repo.GetCompletedEvents()
 	if err != nil {

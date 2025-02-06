@@ -25,6 +25,53 @@ func (f *TgFormatter) FormatErrorMessage(message string) string {
 	return EmojiError + " " + message
 }
 
+func (f *TgFormatter) FormatEventsSchedule(events []models.Event) string {
+	if len(events) == 0 {
+		return ""
+	}
+
+	var sb strings.Builder
+
+	// Header: display the championship name only once, enclosed in flag emojis
+	sb.WriteString(EmojiFlag)
+	sb.WriteString(" *")
+	sb.WriteString(events[0].ChampionshipName)
+	sb.WriteString("* ")
+	sb.WriteString(EmojiFlag)
+	sb.WriteString("\n")
+
+	// Loop through each event and build the formatted schedule
+	for _, event := range events {
+		sb.WriteString("• *")
+		sb.WriteString(event.Name)
+		sb.WriteString("*")
+		if event.Classes != "" {
+			sb.WriteString(" (")
+			sb.WriteString(event.Classes)
+			sb.WriteString(")")
+		}
+		sb.WriteString(" | ")
+		sb.WriteString(EmojiCalendar)
+		sb.WriteString(" ")
+		sb.WriteString(event.Date.Format("02 Jan 2006"))
+		sb.WriteString(" | ")
+		sb.WriteString(EmojiBowl)
+		sb.WriteString(" Round: ")
+		sb.WriteString(event.RoundNumber)
+		sb.WriteString(" | ")
+		sb.WriteString(EmojiPin)
+		sb.WriteString(" ")
+		sb.WriteString(event.Stadium)
+		sb.WriteString(" | ")
+		sb.WriteString(EmojiBook)
+		sb.WriteString(" ")
+		sb.WriteString(event.Format)
+		sb.WriteString("\n")
+	}
+
+	return sb.String()
+}
+
 func (f *TgFormatter) FormatUpcomingEvents(event models.Event) string {
 	var builder strings.Builder
 	builder.WriteString("🏁 *Upcoming Events* 🏁\n\n")

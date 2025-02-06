@@ -2,12 +2,14 @@ package bot
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
-	tele "gopkg.in/telebot.v3"
-	"mx_news_bot/internal/models"
 	"os"
 	"path/filepath"
 	"strconv"
+
+	"github.com/pkg/errors"
+	tele "gopkg.in/telebot.v3"
+	
+	"mx_news_bot/internal/models"
 )
 
 // startCmd - command to start bot and show main menu
@@ -20,7 +22,7 @@ func (b *Bot) mainMenu() *tele.ReplyMarkup {
 		ReplyKeyboard: [][]tele.ReplyButton{
 			{tele.ReplyButton{Text: ButtonUpcomingEvents}, tele.ReplyButton{Text: ButtonCurrentStandings}},
 			{tele.ReplyButton{Text: ButtonChampionshipSchedules}, tele.ReplyButton{Text: ButtonEventResults}},
-			{tele.ReplyButton{Text: ButtonPointsDistribution}, tele.ReplyButton{Text: ButtonSettings}},
+			//{tele.ReplyButton{Text: ButtonPointsDistribution}, tele.ReplyButton{Text: ButtonSettings}},
 		}, ResizeKeyboard: true,
 	}
 }
@@ -84,13 +86,22 @@ func (b *Bot) showCurrentStandingsMenu(c tele.Context) error {
 }
 
 func (b *Bot) showChampionshipSchedulesMenu(c tele.Context) error {
-	replyMarkup := &tele.ReplyMarkup{
-		ReplyKeyboard: [][]tele.ReplyButton{
-			{tele.ReplyButton{Text: ButtonEventResults}, tele.ReplyButton{Text: ButtonPointsDistribution}},
-			{tele.ReplyButton{Text: ButtonBackToMainMenu}},
-		}, ResizeKeyboard: true,
+	currentChamps, err := b.app.GetAllChampionships()
+	if err != nil {
+		b.log.Error("Failed to get all championships", "error", err)
+		return c.Send("An error occurred while listing champs. Please try again later.")
 	}
-	return c.Send(ButtonChampionshipSchedules, replyMarkup)
+
+	buttons := make([]tele.InlineButton, len(currentChamps))
+	for i, champ := range currentChamps {
+		buttons[i] = tele.InlineButton{
+			Text:   champ.Name,
+			Unique: fmt.Sprintf("%s%d", uqChampSchedulePrefix, champ.ID),
+		}
+	}
+
+	replyMarkup := &tele.ReplyMarkup{InlineKeyboard: buttonsToGrid(buttons, 2)}
+	return c.Send("Please select a championship:", replyMarkup)
 }
 
 func (b *Bot) showEventResults(c tele.Context) error {

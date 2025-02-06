@@ -29,7 +29,7 @@ func New(db *sqlx.DB, log *slog.Logger) *Repository {
 // GetAllChampionships fetches all available championships
 func (r *Repository) GetAllChampionships() ([]models.Championship, error) {
 	var championships []models.Championship
-	err := r.db.Select(&championships, sqlGetAllChampionships)
+	err := r.db.Select(&championships, sqlGetAllChampionships, time.Now().Year())
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to fetch championships from database")
 	}
@@ -41,6 +41,20 @@ func (r *Repository) GetUpcomingEvents() ([]models.Event, error) {
 	var events []models.Event
 
 	err := r.db.Select(&events, sqlGetUpcomingEvents)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to fetch upcoming events from database")
+	}
+	return events, nil
+}
+
+func (r *Repository) GetChampEventsFromNow(champID int) ([]models.Event, error) {
+	var events []models.Event
+
+	err := r.db.Select(&events, sqlGetEventsByChampIDFromNow, champID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}

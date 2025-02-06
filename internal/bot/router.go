@@ -38,9 +38,10 @@ func (b *Bot) setupHandlers() {
 }
 
 const (
-	uqShowAllEvents = "show_all_events"
-	uqEventPrefix   = "event_"
-	uqRacePrefix    = "race_"
+	uqShowAllEvents       = "show_all_events"
+	uqEventPrefix         = "event_"
+	uqRacePrefix          = "race_"
+	uqChampSchedulePrefix = "champ_schedule_"
 )
 
 // Middleware to handle inline button callbacks
