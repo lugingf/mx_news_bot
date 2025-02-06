@@ -58,6 +58,11 @@ type Event struct {
 	Status           string    `db:"event_status"` // upcoming or completed
 }
 
+type RaceClass struct {
+	Class  string `db:"class"`
+	Region string `db:"region"`
+}
+
 type EventToCheck struct {
 	ChampionshipID string    `db:"championship_id"`
 	Name           string    `db:"name"`

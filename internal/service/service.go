@@ -32,7 +32,7 @@ func (b *BotBackend) GetAllChampionships() ([]models.Championship, error) {
 }
 
 // GetChampionshipClasses fetches championships available
-func (b *BotBackend) GetChampionshipClasses(champID int) ([]string, error) {
+func (b *BotBackend) GetChampionshipClasses(champID int) ([]models.RaceClass, error) {
 	classes, err := b.repo.GetChampionshipClasses(champID)
 	if err != nil {
 		return nil, errors.Wrap(err, "bot: could not get championship classes")
@@ -50,7 +50,7 @@ func (b *BotBackend) GetChampionshipsWithRaces() ([]models.Championship, error) 
 	return championships, nil
 }
 
-func (b *BotBackend) GetCurrentStandings(champID int, class string) ([]models.Standing, error) {
+func (b *BotBackend) GetCurrentStandings(champID int, class, region string) ([]models.Standing, error) {
 	events, err := b.repo.GetCompletedEventsByChampionship(champID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get completed events: %w", err)
@@ -68,7 +68,7 @@ func (b *BotBackend) GetCurrentStandings(champID int, class string) ([]models.St
 		switch event.Format {
 		case "Standard":
 			// For standard events, use the finishing positions from the main race.
-			resultsMap, err := b.repo.GetRaceResultByDetails(event.ID, class, storage.RaceTypeMainEvent)
+			resultsMap, err := b.repo.GetRaceResultByDetails(event.ID, class, storage.RaceTypeMainEvent, region)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get race result for event %d: %w", event.ID, err)
 			}
@@ -94,7 +94,7 @@ func (b *BotBackend) GetCurrentStandings(champID int, class string) ([]models.St
 			// For Tripple Crown events, aggregate finishing positions from three races.
 			sumPositions := make(map[string]int)
 			for _, raceType := range []string{storage.RaceTypeRace1, storage.RaceTypeRace2, storage.RaceTypeRace3} {
-				resultsMap, err := b.repo.GetRaceResultByDetails(event.ID, class, raceType)
+				resultsMap, err := b.repo.GetRaceResultByDetails(event.ID, class, raceType, region)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get race result for event %d race type %s: %w", event.ID, raceType, err)
 				}
@@ -220,7 +220,7 @@ func (b *BotBackend) GetEventRaces(eventID int) ([]models.EventRace, error) {
 }
 
 func (b *BotBackend) GetEventRaceResultByDetails(eventID int, class, raceType string) ([]models.RaceResult, error) {
-	races, err := b.repo.GetRaceResultByDetails(eventID, class, raceType)
+	races, err := b.repo.GetRaceResultByDetails(eventID, class, raceType, "")
 	if err != nil {
 		b.log.Error("Failed to get event result", "error", err)
 		return nil, errors.New("could not fetch event result")

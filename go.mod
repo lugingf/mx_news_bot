@@ -3,6 +3,7 @@ module mx_news_bot
 go 1.23.1
 
 require (
+	github.com/PuerkitoBio/goquery v1.10.1
 	github.com/chromedp/chromedp v0.11.2
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/jmoiron/sqlx v1.4.0
@@ -17,6 +18,7 @@ require (
 )
 
 require (
+	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chromedp/cdproto v0.0.0-20241022234722-4d5d5faf59fb // indirect
@@ -36,6 +38,7 @@ require (
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.55.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
-	golang.org/x/sys v0.27.0 // indirect
+	golang.org/x/net v0.33.0 // indirect
+	golang.org/x/sys v0.28.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 )

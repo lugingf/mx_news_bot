@@ -44,8 +44,8 @@ func (r *Repository) GetAllChampionships() ([]models.Championship, error) {
 }
 
 // GetChampionshipClasses fetches all available championships
-func (r *Repository) GetChampionshipClasses(champID int) ([]string, error) {
-	var classes []string
+func (r *Repository) GetChampionshipClasses(champID int) ([]models.RaceClass, error) {
+	var classes []models.RaceClass
 	err := r.db.Select(&classes, sqlGetChampionshipClasses, champID)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to fetch championships from database")
@@ -111,10 +111,10 @@ func (r *Repository) GetNextEvent() (models.EventToCheck, error) {
 	return event[0], nil
 }
 
-func (r *Repository) GetRaceResultByDetails(eventID int, class, raceType string) (map[string]models.RaceResult, error) {
+func (r *Repository) GetRaceResultByDetails(eventID int, class, raceType, region string) (map[string]models.RaceResult, error) {
 	result := make(map[string]models.RaceResult)
 
-	rows, err := r.db.Query(sqlGetSXEventResultByDetails, eventID, class, raceType)
+	rows, err := r.db.Query(sqlGetSXEventResultByDetails, eventID, class, raceType, region)
 	if err != nil {
 		r.log.Error("Failed to execute query", "error", err)
 		return nil, errors.New("unable to fetch race results from the database")

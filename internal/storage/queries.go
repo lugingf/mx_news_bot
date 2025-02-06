@@ -21,14 +21,27 @@ const (
 ;
 `
 	sqlGetChampionshipClasses = `
-SELECT DISTINCT class FROM ama_supercross_results WHERE championship_id = $1
-UNION
-SELECT DISTINCT class FROM ama_promotocross_results WHERE championship_id = $1
-UNION
-SELECT DISTINCT class FROM mxgp_results WHERE championship_id = $1
-UNION
-SELECT DISTINCT class FROM wsx_results WHERE championship_id = $1
-;
+	WITH ama_supercross_with_region AS (
+		SELECT DISTINCT 
+			sr.class, 
+			CASE 
+				WHEN e.classes ILIKE '%East%' THEN 'East'
+				WHEN e.classes ILIKE '%West%' THEN 'West'
+				ELSE ''
+			END AS region
+		FROM ama_supercross_results sr
+		JOIN events e ON sr.event_code = e.event_code
+		WHERE sr.championship_id = $1
+	)
+	SELECT class, region FROM ama_supercross_with_region
+	
+	UNION
+	SELECT DISTINCT class, '' AS region FROM ama_promotocross_results WHERE championship_id = $1
+	UNION
+	SELECT DISTINCT class, '' AS region FROM mxgp_results WHERE championship_id = $1
+	UNION
+	SELECT DISTINCT class, '' AS region FROM wsx_results WHERE championship_id = $1;
+	;
 `
 
 	sqlGetSXEventResultByDetails = `
@@ -42,7 +55,7 @@ SELECT
     tracks.name AS track,
     events.event_date,
     events.round_number AS round,
-    (select count(*) from events where championship_id = 1) as total_rounds,
+    (SELECT COUNT(*) FROM events WHERE championship_id = 1) AS total_rounds,
     a.class,
     a.position,
     a.rider_number,
@@ -59,7 +72,13 @@ WHERE a.championship_id = 1
   AND events.id = $1
   AND a.class = $2
   AND a.race_type = $3
-ORDER BY a.class DESC, a.event_name, events.round_number, a.position;
+  AND (
+        $4 = '' OR -- Если $4 пустое, выбираем все
+        ($4 = 'East' AND events.classes ILIKE '%East%') OR
+        ($4 = 'West' AND events.classes ILIKE '%West%')
+      )
+ORDER BY a.class DESC, a.event_name, events.round_number, a.position
+;
 `
 
 	sqlGetSXEventRaces = `

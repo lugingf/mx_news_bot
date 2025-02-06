@@ -177,8 +177,8 @@ func (b *Bot) showChampClassesMenuStandings(c tele.Context, uqData string) error
 	buttons := make([]tele.InlineButton, len(classes))
 	for i, class := range classes {
 		buttons[i] = tele.InlineButton{
-			Text:   class,
-			Unique: fmt.Sprintf("%s%d_%s", uqChampClassResultPrefix, id, class),
+			Text:   fmt.Sprintf("%s%s", class.Class, class.Region),
+			Unique: fmt.Sprintf("%s%d_%s_%s", uqChampClassResultPrefix, id, class.Class, class.Region),
 		}
 	}
 
@@ -189,7 +189,7 @@ func (b *Bot) showChampClassesMenuStandings(c tele.Context, uqData string) error
 func (b *Bot) showCurrentStandings(c tele.Context, uqData string) error {
 	noPref := strings.TrimPrefix(uqData, uqChampClassResultPrefix)
 	parts := strings.Split(noPref, "_")
-	if len(parts) != 2 {
+	if len(parts) < 3 {
 		b.log.Error("Bad unique data parts", "unique", uqData)
 		return c.Respond(&tele.CallbackResponse{Text: "Sorry. Race data corrupted. We'll fix it soon"})
 	}
@@ -200,7 +200,7 @@ func (b *Bot) showCurrentStandings(c tele.Context, uqData string) error {
 		return c.Respond(&tele.CallbackResponse{Text: "Sorry. Race data corrupted. We'll fix it soon"})
 	}
 
-	standings, err := b.app.GetCurrentStandings(id, parts[1])
+	standings, err := b.app.GetCurrentStandings(id, parts[1], parts[2])
 	if err != nil {
 		b.log.Error("Failed to prepare standings", "error", err)
 		return c.Send("Unable to prepare standings at the moment.")
