@@ -35,16 +35,16 @@ func (f *TgFormatter) FormatStandings(standings []models.Standing) string {
 
 	sb.WriteString("```\n")
 	sb.WriteString(fmt.Sprintf("%s Championship Standings %s\n", EmojiBowl, EmojiBowl))
-	sb.WriteString(strings.Repeat("=", 40) + "\n\n")
+	sb.WriteString(strings.Repeat("=", 35) + "\n\n")
 
 	sb.WriteString(fmt.Sprintf("%-3s | %-20s | %-6s\n", "#", "Rider", "Points"))
-	sb.WriteString(strings.Repeat("-", 40) + "\n")
+	sb.WriteString(strings.Repeat("-", 35) + "\n")
 
 	for i, s := range standings {
 		if i == 0 {
-			sb.WriteString(fmt.Sprintf("%-3d | %-20s | %-6d %s\n", i+1, s.RiderName, s.Points, EmojiFlag))
+			sb.WriteString(fmt.Sprintf("%-3d | %-20s | %-3d %s\n", i+1, s.RiderName, s.Points, EmojiFlag))
 		} else {
-			sb.WriteString(fmt.Sprintf("%-3d | %-20s | %-6d\n", i+1, s.RiderName, s.Points))
+			sb.WriteString(fmt.Sprintf("%-3d | %-20s | %-3d\n", i+1, s.RiderName, s.Points))
 		}
 	}
 

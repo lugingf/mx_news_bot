@@ -38,10 +38,12 @@ func (b *Bot) setupHandlers() {
 }
 
 const (
-	uqShowAllEvents       = "show_all_events"
-	uqEventPrefix         = "event_"
-	uqRacePrefix          = "race_"
-	uqChampSchedulePrefix = "champ_schedule_"
+	uqShowAllEvents          = "show_all_events"
+	uqEventPrefix            = "event_"
+	uqRacePrefix             = "race_"
+	uqChampSchedulePrefix    = "champ_schedule_"
+	uqChampResultPrefix      = "champ_result_"
+	uqChampClassResultPrefix = "champ_class_result_"
 )
 
 // Middleware to handle inline button callbacks
@@ -61,6 +63,12 @@ func (b *Bot) setupInlineHandlers() {
 
 		case strings.HasPrefix(data, uqChampSchedulePrefix):
 			return b.showChampionshipScheduleFromNow(c, data)
+
+		case strings.HasPrefix(data, uqChampResultPrefix):
+			return b.showChampClassesMenuStandings(c, data)
+
+		case strings.HasPrefix(data, uqChampClassResultPrefix):
+			return b.showCurrentStandings(c, data)
 		}
 
 		b.log.Error("Failed to determine callback", "data", data)

@@ -31,6 +31,25 @@ func (b *BotBackend) GetAllChampionships() ([]models.Championship, error) {
 	return championships, nil
 }
 
+// GetChampionshipClasses fetches championships available
+func (b *BotBackend) GetChampionshipClasses(champID int) ([]string, error) {
+	classes, err := b.repo.GetChampionshipClasses(champID)
+	if err != nil {
+		return nil, errors.Wrap(err, "bot: could not get championship classes")
+	}
+
+	return classes, nil
+}
+
+// GetChampionshipsWithRaces fetches championships available
+func (b *BotBackend) GetChampionshipsWithRaces() ([]models.Championship, error) {
+	championships, err := b.repo.GetChampionshipsWithRaces()
+	if err != nil {
+		return nil, errors.Wrap(err, "bot: could not get championships with races")
+	}
+	return championships, nil
+}
+
 func (b *BotBackend) GetCurrentStandings(champID int, class string) ([]models.Standing, error) {
 	currentChampionship, err := b.repo.GetCurrentChampionship(champID)
 	if err != nil {

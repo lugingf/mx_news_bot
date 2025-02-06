@@ -57,34 +57,23 @@ func (b *Bot) showUpcomingEvents(c tele.Context) error {
 	return nil
 }
 
-func (b *Bot) handleSelectChampionshipForEvents(c tele.Context) error {
-	championships, err := b.app.GetAllChampionships()
+func (b *Bot) showCurrentStandingsMenu(c tele.Context) error {
+	currentChamps, err := b.app.GetChampionshipsWithRaces()
 	if err != nil {
-		b.log.Error("Failed to fetch championships", "error", err)
-		return c.Send("Unable to fetch championships at the moment.")
+		b.log.Error("Failed to get championships with races", "error", err)
+		return c.Send("An error occurred while listing champs. Please try again later.")
 	}
 
-	buttons := make([]tele.InlineButton, len(championships))
-	for i, champ := range championships {
+	buttons := make([]tele.InlineButton, len(currentChamps))
+	for i, champ := range currentChamps {
 		buttons[i] = tele.InlineButton{
 			Text:   champ.Name,
-			Unique: fmt.Sprintf("select_champ_%d", champ.ID),
+			Unique: fmt.Sprintf("%s%d", uqChampResultPrefix, champ.ID),
 		}
 	}
 
-	replyMarkup := &tele.ReplyMarkup{InlineKeyboard: buttonsToGrid(buttons, 2)}
+	replyMarkup := &tele.ReplyMarkup{InlineKeyboard: buttonsToGrid(buttons, 1)}
 	return c.Send("Please select a championship:", replyMarkup)
-}
-
-func (b *Bot) showCurrentStandingsMenu(c tele.Context) error {
-	standings, err := b.app.GetCurrentStandings(1, "450SX")
-	if err != nil {
-		b.log.Error("Failed to prepare standings", "error", err)
-		return c.Send("Unable to prepare standings at the moment.")
-	}
-
-	resultText := b.formatter.FormatStandings(standings)
-	return c.Send(resultText, &tele.SendOptions{ParseMode: tele.ModeMarkdown})
 }
 
 func (b *Bot) showChampionshipSchedulesMenu(c tele.Context) error {

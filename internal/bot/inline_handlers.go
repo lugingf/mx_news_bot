@@ -158,3 +158,54 @@ func (b *Bot) showEventRaces(c tele.Context, uqData string) error {
 	inlineMarkup := &tele.ReplyMarkup{InlineKeyboard: inlineButtons}
 	return c.Send("Select a race:", inlineMarkup)
 }
+
+func (b *Bot) showChampClassesMenuStandings(c tele.Context, uqData string) error {
+	noPref := strings.TrimPrefix(uqData, uqChampResultPrefix)
+
+	id, err := strconv.Atoi(noPref)
+	if err != nil {
+		b.log.Error("Bad unique Name data part", "unique_id", noPref, "error", err)
+		return c.Respond(&tele.CallbackResponse{Text: "Sorry. Race data corrupted. We'll fix it soon"})
+	}
+
+	classes, err := b.app.GetChampionshipClasses(id)
+	if err != nil {
+		b.log.Error("Failed to get championships with races", "error", err)
+		return c.Send("An error occurred while listing champs. Please try again later.")
+	}
+
+	buttons := make([]tele.InlineButton, len(classes))
+	for i, class := range classes {
+		buttons[i] = tele.InlineButton{
+			Text:   class,
+			Unique: fmt.Sprintf("%s%d_%d", uqChampClassResultPrefix, id, class),
+		}
+	}
+
+	replyMarkup := &tele.ReplyMarkup{InlineKeyboard: buttonsToGrid(buttons, 1)}
+	return c.Send("Please select a class:", replyMarkup)
+}
+
+func (b *Bot) showCurrentStandings(c tele.Context, uqData string) error {
+	noPref := strings.TrimPrefix(uqData, uqChampClassResultPrefix)
+	parts := strings.Split(noPref, "_")
+	if len(parts) != 2 {
+		b.log.Error("Bad unique data parts", "unique", uqData)
+		return c.Respond(&tele.CallbackResponse{Text: "Sorry. Race data corrupted. We'll fix it soon"})
+	}
+
+	id, err := strconv.Atoi(parts[0])
+	if err != nil {
+		b.log.Error("Bad unique Name data part", "unique_id", parts[0])
+		return c.Respond(&tele.CallbackResponse{Text: "Sorry. Race data corrupted. We'll fix it soon"})
+	}
+
+	standings, err := b.app.GetCurrentStandings(id, parts[1])
+	if err != nil {
+		b.log.Error("Failed to prepare standings", "error", err)
+		return c.Send("Unable to prepare standings at the moment.")
+	}
+
+	resultText := b.formatter.FormatStandings(standings)
+	return c.Send(resultText, &tele.SendOptions{ParseMode: tele.ModeMarkdown})
+}

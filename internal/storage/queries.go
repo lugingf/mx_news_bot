@@ -10,7 +10,25 @@ const (
 	SELECT id, championship_name, class_names, season_year 
 		FROM championships 
 		WHERE season_year = $1
-	;
+	;	
+`
+
+	sqlGetChampionshipWithRaces = `
+		SELECT DISTINCT c.*
+	FROM championships c
+	JOIN events e ON c.id = e.championship_id
+	WHERE e.event_status = 'completed' AND season_year = $1
+;
+`
+	sqlGetChampionshipClasses = `
+SELECT DISTINCT class FROM ama_supercross_results WHERE championship_id = $1
+UNION
+SELECT DISTINCT class FROM ama_promotocross_results WHERE championship_id = $1
+UNION
+SELECT DISTINCT class FROM mxgp_results WHERE championship_id = $1
+UNION
+SELECT DISTINCT class FROM wsx_results WHERE championship_id = $1
+;
 `
 
 	sqlGetSXEventResultByDetails = `

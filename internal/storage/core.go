@@ -43,6 +43,26 @@ func (r *Repository) GetAllChampionships() ([]models.Championship, error) {
 	return championships, nil
 }
 
+// GetChampionshipClasses fetches all available championships
+func (r *Repository) GetChampionshipClasses(champID int) ([]string, error) {
+	var classes []string
+	err := r.db.Select(&classes, sqlGetChampionshipClasses, champID)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to fetch championships from database")
+	}
+	return classes, nil
+}
+
+// GetChampionshipsWithRaces fetches all available championships
+func (r *Repository) GetChampionshipsWithRaces() ([]models.Championship, error) {
+	var championships []models.Championship
+	err := r.db.Select(&championships, sqlGetChampionshipWithRaces, time.Now().Year())
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to fetch championships from database")
+	}
+	return championships, nil
+}
+
 // GetUpcomingEvents fetches upcoming events for a given championship
 func (r *Repository) GetUpcomingEvents() ([]models.Event, error) {
 	var events []models.Event
