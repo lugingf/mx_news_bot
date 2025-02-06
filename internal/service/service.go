@@ -42,6 +42,8 @@ func (b *BotBackend) GetCurrentStandings(champID int) ([]models.Standing, error)
 		return nil, fmt.Errorf("failed to get completed events: %w", err)
 	}
 
+	b.log.Info("Got events for current championship", "champ_id", champID, "event_count", len(events))
+
 	// Use rider name as the unique identifier.
 	riderPoints := make(map[string]int)
 	// This map stores the rider names (the key is the rider's name itself).
@@ -123,9 +125,13 @@ func (b *BotBackend) GetCurrentStandings(champID int) ([]models.Standing, error)
 		default:
 			// Skip events with unknown format.
 			b.log.Info(fmt.Sprintf("Skipping event %d with unknown format: %s", event.ID, event.Format))
+			continue
 		}
+
+		b.log.Info("Race calculated", "race", event.Name, "format", event.Format)
 	}
 
+	b.log.Info("All race calculated", "rider_count", len(riderPoints))
 	// Build and sort the overall standings by total championship points (descending).
 	var standings []models.Standing
 	for name, pts := range riderPoints {
