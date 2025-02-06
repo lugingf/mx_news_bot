@@ -8,7 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	tele "gopkg.in/telebot.v3"
-	
+
 	"mx_news_bot/internal/models"
 )
 
@@ -100,7 +100,7 @@ func (b *Bot) showChampionshipSchedulesMenu(c tele.Context) error {
 		}
 	}
 
-	replyMarkup := &tele.ReplyMarkup{InlineKeyboard: buttonsToGrid(buttons, 2)}
+	replyMarkup := &tele.ReplyMarkup{InlineKeyboard: buttonsToGrid(buttons, 1)}
 	return c.Send("Please select a championship:", replyMarkup)
 }
 
