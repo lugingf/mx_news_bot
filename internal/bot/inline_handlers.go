@@ -3,6 +3,7 @@ package bot
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	"mx_news_bot/internal/service"
 	"strconv"
 	"strings"
 
@@ -76,7 +77,9 @@ func (b *Bot) showEventRaceResult(c tele.Context, uqData string) error {
 		return c.Respond(&tele.CallbackResponse{Text: "Sorry. Race data corrupted. We'll fix it soon"})
 	}
 
-	results, err := b.app.GetEventRaceResultByDetails(id, parts[1], parts[2])
+	class := parts[1]
+	raceType := parts[2]
+	results, err := b.app.GetEventRaceResultByDetails(id, class, raceType)
 	if err != nil {
 		b.log.Error("Failed to fetch results details",
 			"eventID", id,
@@ -86,6 +89,20 @@ func (b *Bot) showEventRaceResult(c tele.Context, uqData string) error {
 		)
 
 		return c.Respond(&tele.CallbackResponse{Text: "Failed to fetch results details."})
+	}
+
+	if raceType == service.EventTypeTripleCrownStandings {
+		for _, result := range results {
+			message := b.formatter.FormatTripleCrownResultTable(result)
+			err = c.Send(message, &tele.SendOptions{ParseMode: tele.ModeMarkdown})
+			if err != nil {
+				b.log.Error("Failed to send event results", "error", err)
+				return c.Respond(&tele.CallbackResponse{Text: "Failed to send event results."})
+			}
+		}
+		// Let's show race buttons again
+		return b.showEventRaces(c, fmt.Sprintf("%s%d", uqEventPrefix, id))
+		
 	}
 
 	for _, result := range results {
@@ -130,6 +147,12 @@ func (b *Bot) showEventRaces(c tele.Context, uqData string) error {
 
 	// Define the pattern: first row with 2 buttons, then 1, then 2, then 1, and repeat
 	pattern := []int{2, 1, 2, 1}
+	if len(races) == 8 {
+		// Looks like we have Triple Crown
+		pattern = []int{3, 1, 3, 1}
+
+	}
+
 	patternIndex := 0
 	i := 0
 

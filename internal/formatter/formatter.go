@@ -162,3 +162,21 @@ func (f *TgFormatter) FormatEventResultTable(event models.RaceResult) string {
 
 	return text
 }
+
+func (f *TgFormatter) FormatTripleCrownResultTable(event models.RaceResult) string {
+	var builder strings.Builder
+
+	builder.WriteString(fmt.Sprintf("🏆 *%s - %s*\n\n", event.ChampName, event.EventName))
+	builder.WriteString("```")
+	builder.WriteString(fmt.Sprintf("%-8s | %-4s | %-20s | %-3s | %-3s | %-3s | %-5s\n", "Position", "Num", "Name", "R1", "R2", "R3", "Total"))
+	builder.WriteString(strings.Repeat("-", 55) + "\n")
+
+	pos := 1
+	for _, rider := range event.Results {
+		builder.WriteString(fmt.Sprintf("%-8d | %-4s | %-20s | %-3s | %-3s | %-3s | %-5s\n", pos, rider.RiderNumber, rider.Name, "-", "-", "-", rider.Position))
+		pos++
+	}
+	builder.WriteString("```")
+
+	return builder.String()
+}

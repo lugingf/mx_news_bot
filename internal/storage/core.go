@@ -21,13 +21,6 @@ type Repository struct {
 
 const eventStatusCompleted = "completed"
 
-const (
-	RaceTypeMainEvent = "Main Event"
-	RaceTypeRace1     = "Race 1"
-	RaceTypeRace2     = "Race 2"
-	RaceTypeRace3     = "Race 3"
-)
-
 // New initializes a new Repository instance
 func New(db *sqlx.DB, log *slog.Logger) *Repository {
 	return &Repository{db: db, log: log}
@@ -109,6 +102,82 @@ func (r *Repository) GetNextEvent() (models.EventToCheck, error) {
 	}
 
 	return event[0], nil
+}
+
+func (r *Repository) GetEventByID(ID int) (models.Event, error) {
+	var event models.Event
+
+	err := r.db.Select(&event, sqlGetEventByID, ID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return models.Event{}, nil
+	}
+
+	if err != nil {
+		return models.Event{}, errors.Wrap(err, "unable to check event from database")
+	}
+
+	return event, nil
+}
+
+func (r *Repository) GetTripleCrownRaceResults(eventID int, class string) (map[string]models.RaceResult, error) {
+	result := make(map[string]models.RaceResult)
+
+	rows, err := r.db.Query(sqlGetSXTripleCrownStandings, eventID, class)
+	if err != nil {
+		r.log.Error("Failed to execute query", "error", err)
+		return nil, errors.New("unable to fetch race results from the database")
+	}
+	defer rows.Close()
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
+	for rows.Next() {
+		var rider models.Rider
+		var raceResult models.RaceResult
+
+		err := rows.Scan(
+			&raceResult.ChampName,
+			&raceResult.EventName,
+			&raceResult.EventCode,
+			&raceResult.RaceType,
+			&raceResult.City,
+			&raceResult.State,
+			&raceResult.Track,
+			&raceResult.Date,
+			&raceResult.Round,
+			&raceResult.TotalRounds,
+			&raceResult.Class,
+			&rider.Position,
+			&rider.RiderNumber,
+			&rider.Name,
+			&rider.Hometown,
+			&rider.Bike,
+			&rider.Team,
+		)
+		if err != nil {
+			r.log.Error("Failed to scan row", "error", err)
+			return nil, errors.New("error scanning race results")
+		}
+
+		key := r.getRaceKey(raceResult.Class, raceResult.RaceType)
+
+		if existingResult, ok := result[key]; ok {
+			existingResult.Results = append(existingResult.Results, rider)
+			result[key] = existingResult
+		} else {
+			raceResult.Results = []models.Rider{rider}
+			result[key] = raceResult
+		}
+	}
+
+	if err = rows.Err(); err != nil {
+		r.log.Error("Row iteration error", "error", err)
+		return nil, errors.New("error iterating over race results")
+	}
+
+	return result, nil
 }
 
 func (r *Repository) GetRaceResultByDetails(eventID int, class, raceType, region string) (map[string]models.RaceResult, error) {
