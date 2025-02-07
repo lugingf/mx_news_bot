@@ -160,7 +160,6 @@ WHERE
 ORDER BY
     e.event_date ASC;
 	`
-	`
 
 	sqlGetUpcomingEvents = `
 SELECT
