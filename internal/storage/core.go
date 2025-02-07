@@ -153,13 +153,12 @@ func (r *Repository) GetTripleCrownRaceResults(eventID int, class string) (map[s
 			&rider.Position,
 			&rider.RiderNumber,
 			&rider.Name,
-			&rider.Hometown,
 			&rider.Bike,
 			&rider.Team,
 		)
 		if err != nil {
 			r.log.Error("Failed to scan row", "error", err)
-			return nil, errors.New("error scanning race results")
+			return nil, errors.New("triple crown: error scanning race results")
 		}
 
 		key := r.getRaceKey(raceResult.Class, raceResult.RaceType)

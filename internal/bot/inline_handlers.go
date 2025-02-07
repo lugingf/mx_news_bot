@@ -149,7 +149,7 @@ func (b *Bot) showEventRaces(c tele.Context, uqData string) error {
 	pattern := []int{2, 1, 2, 1}
 	if len(races) == 8 {
 		// Looks like we have Triple Crown
-		pattern = []int{3, 1, 3, 1}
+		pattern = []int{2, 1, 1, 2, 1, 1}
 	}
 	// Need to ensure we have correct order
 	sort.Slice(races, func(i, j int) bool {
