@@ -293,6 +293,7 @@ func (b *BotBackend) getTripleCrownStandings(eventID int, class string) ([]model
 	// Карта для агрегации позиций по гонщикам
 	riderScores := make(map[string][]int)
 
+	b.log.Info("Got triple crown races", "count", len(races))
 	for _, race := range races {
 		if len(race.Results) == 0 {
 			b.log.Error("No results for race", "race", race.RaceType)
@@ -310,11 +311,13 @@ func (b *BotBackend) getTripleCrownStandings(eventID int, class string) ([]model
 		for _, pos := range positions {
 			totalPoints += pos
 		}
+
+		rKey := b.repo.GetRaceKey(class, "Race 1")
 		results = append(results, models.Rider{
 			RiderNumber: riderNumber,
-			Name:        races[total].Results[0].Name,
-			Bike:        races[total].Results[0].Bike,
-			Team:        races[total].Results[0].Team,
+			Name:        races[rKey].Results[0].Name,
+			Bike:        races[rKey].Results[0].Bike,
+			Team:        races[rKey].Results[0].Team,
 			Position:    strconv.Itoa(totalPoints), // Итоговая сумма позиций
 		})
 	}
@@ -326,18 +329,19 @@ func (b *BotBackend) getTripleCrownStandings(eventID int, class string) ([]model
 
 	b.log.Info("Event result fetched", "races", len(results))
 
+	rKey := b.repo.GetRaceKey(class, "Race 1")
 	// Заворачиваем в RaceResult и возвращаем
 	finalResult := models.RaceResult{
-		ChampName:   races[total].ChampName,
-		EventName:   races[total].EventName,
-		EventCode:   races[total].EventCode,
+		ChampName:   races[rKey].ChampName,
+		EventName:   races[rKey].EventName,
+		EventCode:   races[rKey].EventCode,
 		RaceType:    "Triple Crown",
-		City:        races[total].City,
-		State:       races[total].State,
-		Track:       races[total].Track,
-		Date:        races[total].Date,
-		Round:       races[total].Round,
-		TotalRounds: races[total].TotalRounds,
+		City:        races[rKey].City,
+		State:       races[rKey].State,
+		Track:       races[rKey].Track,
+		Date:        races[rKey].Date,
+		Round:       races[rKey].Round,
+		TotalRounds: races[rKey].TotalRounds,
 		Class:       class,
 		Results:     results,
 	}

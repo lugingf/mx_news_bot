@@ -161,7 +161,7 @@ func (r *Repository) GetTripleCrownRaceResults(eventID int, class string) (map[s
 			return nil, errors.New("triple crown: error scanning race results")
 		}
 
-		key := r.getRaceKey(raceResult.Class, raceResult.RaceType)
+		key := r.GetRaceKey(raceResult.Class, raceResult.RaceType)
 
 		if existingResult, ok := result[key]; ok {
 			existingResult.Results = append(existingResult.Results, rider)
@@ -222,7 +222,7 @@ func (r *Repository) GetRaceResultByDetails(eventID int, class, raceType, region
 			return nil, errors.New("error scanning race results")
 		}
 
-		key := r.getRaceKey(raceResult.Class, raceResult.RaceType)
+		key := r.GetRaceKey(raceResult.Class, raceResult.RaceType)
 
 		if existingResult, ok := result[key]; ok {
 			existingResult.Results = append(existingResult.Results, rider)
@@ -241,7 +241,7 @@ func (r *Repository) GetRaceResultByDetails(eventID int, class, raceType, region
 	return result, nil
 }
 
-func (r *Repository) getRaceKey(class, race string) string {
+func (r *Repository) GetRaceKey(class, race string) string {
 	return fmt.Sprintf("%s %s", class, race)
 }
 
