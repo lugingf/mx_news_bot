@@ -188,7 +188,7 @@ func (f *TgFormatter) FormatTripleCrownResultTable(event models.Event, class str
 	builder.WriteString("```")
 	// Table header
 	builder.WriteString(fmt.Sprintf("%-3s | %-2s | %-15s | %-9s | %-2s | %-2s | %-2s | %-5s\n",
-		"Pos", "#", "Name", "Bike", "R1", "R2", "R3", "Total"))
+		" Pos", "#", "Name", "Bike", "R1", "R2", "R3", "Total"))
 	builder.WriteString(strings.Repeat("-", 60) + "\n")
 
 	// Table rows

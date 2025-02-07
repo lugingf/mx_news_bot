@@ -95,6 +95,7 @@ func (b *Bot) showEventRaceResult(c tele.Context, uqData string) error {
 		}
 
 		message := b.formatter.FormatTripleCrownResultTable(event, class, results)
+		b.log.Info(message)
 		err = c.Send(message, &tele.SendOptions{ParseMode: tele.ModeMarkdown})
 		if err != nil {
 			b.log.Error("Failed to send event result", "error", err)
