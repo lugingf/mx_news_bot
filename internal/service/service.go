@@ -294,6 +294,7 @@ func (b *BotBackend) getTripleCrownStandings(eventID int, class string) ([]model
 	riderScores := make(map[string][]int)
 
 	b.log.Info("Got triple crown races", "count", len(races))
+	b.log.Info("Got triple crown races", "Races", races)
 	for _, race := range races {
 		if len(race.Results) == 0 {
 			b.log.Error("No results for race", "race", race.RaceType)
