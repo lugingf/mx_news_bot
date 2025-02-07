@@ -181,20 +181,19 @@ func (r *Repository) GetTripleCrownRaceResults(eventID int, class string) (map[s
 }
 
 func (r *Repository) GetRaceResultByDetails(eventID int, class, raceType, region string) (models.RaceResult, error) {
-	result := models.RaceResult{}
+	raceResult := models.RaceResult{}
 
 	rows, err := r.db.Query(sqlGetSXEventResultByDetails, eventID, class, raceType, region)
 	if err != nil {
 		r.log.Error("Failed to execute query", "error", err)
-		return result, errors.New("unable to fetch race results from the database")
+		return raceResult, errors.New("unable to fetch race results from the database")
 	}
 	defer rows.Close()
 
 	if errors.Is(err, sql.ErrNoRows) {
-		return result, nil
+		return raceResult, nil
 	}
 
-	var raceResult models.RaceResult
 	for rows.Next() {
 		var rider models.Rider
 
@@ -220,19 +219,18 @@ func (r *Repository) GetRaceResultByDetails(eventID int, class, raceType, region
 
 		if err != nil {
 			r.log.Error("Failed to scan row", "error", err)
-			return result, errors.New("error scanning race results")
+			return raceResult, errors.New("error scanning race results")
 		}
 
-		r.log.Warn("Row iteration", "row", raceResult.Results)
 		raceResult.Results = append(raceResult.Results, rider)
 	}
 
 	if err = rows.Err(); err != nil {
 		r.log.Error("Row iteration error", "error", err)
-		return result, errors.New("error iterating over race results")
+		return raceResult, errors.New("error iterating over race results")
 	}
 
-	return result, nil
+	return raceResult, nil
 }
 
 func (r *Repository) GetRaceKey(class, race string) string {
