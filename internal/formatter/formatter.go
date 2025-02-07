@@ -187,14 +187,14 @@ func (f *TgFormatter) FormatTripleCrownResultTable(event models.Event, class str
 	))
 	builder.WriteString("```\n")
 	// Table header
-	builder.WriteString(fmt.Sprintf("%-2s | %-2s | %-15s | %-9s | %-2s | %-2s | %-2s | %-5s\n",
+	builder.WriteString(fmt.Sprintf("%-2s | %-2s | %-13s | %-4s | %-2s | %-2s | %-2s | %-5s\n",
 		" P", "#", "Name", "Bike", "R1", "R2", "R3", "Total"))
 	builder.WriteString(strings.Repeat("-", 60) + "\n")
 
 	// Table rows
 	for _, row := range results {
-		builder.WriteString(fmt.Sprintf("%-2d | %-2s | %-15s | %-9s | %-2d | %-2d | %-2d | %-5d\n",
-			row.TotalPosition, row.RiderNumber, shortenName(row.Name), row.Bike, row.R1, row.R2, row.R3, row.TotalPoints))
+		builder.WriteString(fmt.Sprintf("%-2d | %-2s | %-13s | %-4s | %-2d | %-2d | %-2d | %-5d\n",
+			row.TotalPosition, row.RiderNumber, shortenName(row.Name), shortenBike(row.Bike), row.R1, row.R2, row.R3, row.TotalPoints))
 	}
 	builder.WriteString("\n```")
 
@@ -210,4 +210,15 @@ func shortenName(fullName string) string {
 		return parts[0]
 	}
 	return fmt.Sprintf("%c. %s", parts[0][0], parts[len(parts)-1])
+}
+
+func shortenBike(fullName string) string {
+	parts := strings.Fields(fullName)
+	if len(parts) == 0 {
+		return ""
+	}
+	if len(parts) == 1 {
+		return parts[0]
+	}
+	return fmt.Sprintf("%c", parts[0][3])
 }
