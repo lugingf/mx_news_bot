@@ -139,21 +139,8 @@ AND event_date <= NOW()
 ORDER BY event_date LIMIT 1;
 	`
 
-	sqlGetEventByID = `
-SELECT 
-    e.id,
-    c.championship_name,
-    e.name,
-    e.classes,
-    e.venue_name,
-    e.round_number,
-    e.track_id,
-    e.event_date,
-    e.event_format,
-    e.event_status      
-FROM events e 
-JOIN championships c ON c.id=e.championship_id
-WHERE e.id = $1
+	sqlGetEventFormat = `
+SELECT e.event_format FROM events e WHERE e.id = $1
 ;
 	`
 

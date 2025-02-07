@@ -104,19 +104,20 @@ func (r *Repository) GetNextEvent() (models.EventToCheck, error) {
 	return event[0], nil
 }
 
-func (r *Repository) GetEventByID(ID int) (models.Event, error) {
-	var event models.Event
+func (r *Repository) GetEventFormat(ID int) (string, error) {
+	var format string
 
-	err := r.db.Select(&event, sqlGetEventByID, ID)
+	row := r.db.QueryRow(sqlGetEventFormat, ID)
+	err := row.Scan(&format)
 	if errors.Is(err, sql.ErrNoRows) {
-		return models.Event{}, nil
+		return format, nil
 	}
 
 	if err != nil {
-		return models.Event{}, errors.Wrap(err, "unable to check event from database")
+		return format, errors.Wrap(err, "unable to get event format from database")
 	}
 
-	return event, nil
+	return format, nil
 }
 
 func (r *Repository) GetTripleCrownRaceResults(eventID int, class string) (map[string]models.RaceResult, error) {

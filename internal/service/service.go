@@ -224,22 +224,22 @@ func (b *BotBackend) GetCompletedEvents() ([]models.Event, error) {
 func (b *BotBackend) GetEventRaces(eventID int) ([]models.EventRace, error) {
 	races, err := b.repo.GetEventRaces(eventID)
 	if err != nil {
-		return nil, errors.Wrap(err, "bot: could not fetch event races")
+		return nil, errors.Wrap(err, "bot: could not fetch format races")
 	}
 
 	if len(races) == 0 {
 		return nil, nil
 	}
 
-	event, err := b.repo.GetEventByID(eventID)
+	format, err := b.repo.GetEventFormat(eventID)
 	if err != nil {
-		return nil, errors.Wrap(err, "bot: could not fetch event by ID")
+		return nil, errors.Wrap(err, "bot: could not fetch format by ID")
 	}
 
-	b.log.Info("Event format", "format", event.Format)
+	b.log.Info("Handling event format", "format")
 	// For Triple Crown we are interested in overall standings after 3 races
 	// We need additional buttons
-	if event.Format == eventTypeTripleCrown {
+	if format == eventTypeTripleCrown {
 		var classes map[string]struct{}
 		for _, race := range races {
 			classes[race.Class] = struct{}{}
