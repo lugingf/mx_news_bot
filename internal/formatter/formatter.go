@@ -212,13 +212,9 @@ func shortenName(fullName string) string {
 	return fmt.Sprintf("%c. %s", parts[0][0], parts[len(parts)-1])
 }
 
-func shortenBike(fullName string) string {
-	parts := strings.Fields(fullName)
-	if len(parts) == 0 {
-		return ""
+func shortenBike(bike string) string {
+	if len(bike) <= 3 {
+		return bike
 	}
-	if len(parts) == 1 {
-		return parts[0]
-	}
-	return fmt.Sprintf("%c", parts[0][3])
+	return bike[:3]
 }
