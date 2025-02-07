@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"mx_news_bot/internal/service"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -144,14 +145,19 @@ func (b *Bot) showEventRaces(c tele.Context, uqData string) error {
 	}
 
 	var inlineButtons [][]tele.InlineButton
-
 	// Define the pattern: first row with 2 buttons, then 1, then 2, then 1, and repeat
 	pattern := []int{2, 1, 2, 1}
 	if len(races) == 8 {
 		// Looks like we have Triple Crown
 		pattern = []int{3, 1, 3, 1}
-
 	}
+	// Need to ensure we have correct order
+	sort.Slice(races, func(i, j int) bool {
+		if races[i].Class != races[j].Class {
+			return races[i].Class < races[j].Class
+		}
+		return races[i].RaceType < races[j].RaceType
+	})
 
 	patternIndex := 0
 	i := 0

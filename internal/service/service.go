@@ -249,10 +249,6 @@ func (b *BotBackend) GetEventRaces(eventID int) ([]models.EventRace, error) {
 		for class := range classes {
 			races = append(races, models.EventRace{RaceType: EventTypeTripleCrownStandings, EventID: eventID, Class: class})
 		}
-
-		sort.Slice(races, func(i, j int) bool {
-			return races[i].RaceType < races[j].RaceType
-		})
 	}
 
 	return races, nil
