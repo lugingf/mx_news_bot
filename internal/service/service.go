@@ -236,11 +236,11 @@ func (b *BotBackend) GetEventRaces(eventID int) ([]models.EventRace, error) {
 		return nil, errors.Wrap(err, "bot: could not fetch format by ID")
 	}
 
-	b.log.Info("Handling event format", "format")
+	b.log.Info("Handling event format", "format", format)
 	// For Triple Crown we are interested in overall standings after 3 races
 	// We need additional buttons
 	if format == eventTypeTripleCrown {
-		var classes map[string]struct{}
+		classes := make(map[string]struct{})
 		for _, race := range races {
 			classes[race.Class] = struct{}{}
 		}
