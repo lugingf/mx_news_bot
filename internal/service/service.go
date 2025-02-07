@@ -294,6 +294,11 @@ func (b *BotBackend) getTripleCrownStandings(eventID int, class string) ([]model
 	riderScores := make(map[string][]int)
 
 	for _, race := range races {
+		if len(race.Results) == 0 {
+			b.log.Error("No results for race", "race", race.RaceType)
+			continue
+		}
+
 		for _, rider := range race.Results {
 			riderScores[rider.RiderNumber] = append(riderScores[rider.RiderNumber], toInt(rider.Position))
 		}
