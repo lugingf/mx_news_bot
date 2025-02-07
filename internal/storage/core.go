@@ -223,6 +223,7 @@ func (r *Repository) GetRaceResultByDetails(eventID int, class, raceType, region
 			return result, errors.New("error scanning race results")
 		}
 
+		r.log.Warn("Row iteration", "row", raceResult.Results)
 		raceResult.Results = append(raceResult.Results, rider)
 	}
 

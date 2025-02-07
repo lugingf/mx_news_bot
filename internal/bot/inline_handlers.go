@@ -84,7 +84,7 @@ func (b *Bot) showEventRaceResult(c tele.Context, uqData string) error {
 	case raceType == service.EventTypeTripleCrownStandings:
 		results, err := b.app.GetTripleCrownStandings(eventID, class)
 		if err != nil {
-			b.log.Error("Failed to fetch result details",
+			b.log.Error("Event Race Result Triple: Failed to fetch result details",
 				"eventID", eventID,
 				"class", parts[1],
 				"race", parts[2],
@@ -106,7 +106,7 @@ func (b *Bot) showEventRaceResult(c tele.Context, uqData string) error {
 	default:
 		result, err := b.app.GetEventRaceResultByDetails(eventID, class, raceType)
 		if err != nil {
-			b.log.Error("Failed to fetch result details",
+			b.log.Error("Event Race Result Standard: to fetch result details",
 				"eventID", eventID,
 				"class", parts[1],
 				"race", parts[2],
