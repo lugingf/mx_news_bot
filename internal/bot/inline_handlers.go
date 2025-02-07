@@ -173,7 +173,7 @@ func (b *Bot) showEventRaces(c tele.Context, uqData string) error {
 			race := races[i]
 			eventButton := tele.InlineButton{
 				Unique: fmt.Sprintf("%s%d_%s_%s", uqRacePrefix, race.EventID, race.Class, race.RaceType),
-				Text:   fmt.Sprintf("%s - %s", race.Class, race.RaceType),
+				Text:   fmt.Sprintf(" %s - %s ", race.Class, race.RaceType),
 			}
 			row = append(row, eventButton)
 			i++
