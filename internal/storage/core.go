@@ -104,20 +104,20 @@ func (r *Repository) GetNextEvent() (models.EventToCheck, error) {
 	return event[0], nil
 }
 
-func (r *Repository) GetEventFormat(ID int) (string, error) {
-	var format string
+func (r *Repository) GetEventByID(ID int) (models.Event, error) {
+	var event models.Event
 
-	row := r.db.QueryRow(sqlGetEventFormat, ID)
-	err := row.Scan(&format)
+	row := r.db.QueryRow(sqlGetEventByID, ID)
+	err := row.Scan(&event)
 	if errors.Is(err, sql.ErrNoRows) {
-		return format, nil
+		return event, nil
 	}
 
 	if err != nil {
-		return format, errors.Wrap(err, "unable to get event format from database")
+		return event, errors.Wrap(err, "unable to get event event from database")
 	}
 
-	return format, nil
+	return event, nil
 }
 
 func (r *Repository) GetTripleCrownRaceResults(eventID int, class string) (map[string]models.RaceResult, error) {
@@ -161,14 +161,12 @@ func (r *Repository) GetTripleCrownRaceResults(eventID int, class string) (map[s
 			return nil, errors.New("triple crown: error scanning race results")
 		}
 
-		key := r.GetRaceKey(raceResult.Class, raceResult.RaceType)
-
-		if existingResult, ok := result[key]; ok {
+		if existingResult, ok := result[raceResult.RaceType]; ok {
 			existingResult.Results = append(existingResult.Results, rider)
-			result[key] = existingResult
+			result[raceResult.RaceType] = existingResult
 		} else {
 			raceResult.Results = []models.Rider{rider}
-			result[key] = raceResult
+			result[raceResult.RaceType] = raceResult
 		}
 	}
 

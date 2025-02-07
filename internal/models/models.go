@@ -12,6 +12,17 @@ type User struct {
 	IsPremium bool   `db:"is_premium"`
 }
 
+type StandingsRow struct {
+	TotalPosition int
+	RiderNumber   string
+	Name          string
+	Bike          string
+	R1            int
+	R2            int
+	R3            int
+	TotalPoints   int
+}
+
 type RaceResult struct {
 	ChampName   string    `json:"champ_name"`
 	EventName   string    `json:"event_name"`

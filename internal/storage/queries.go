@@ -137,9 +137,29 @@ AND event_date <= NOW()
 ORDER BY event_date LIMIT 1;
 	`
 
-	sqlGetEventFormat = `
-SELECT e.event_format FROM events e WHERE e.id = $1
-;
+	sqlGetEventByID = `
+SELECT
+    e.id,
+    c.championship_name,
+    e.name,
+    e.classes,
+    e.venue_name,
+    e.round_number,
+    e.track_id,
+    e.event_date,
+    event_format,
+    event_status
+FROM
+    events e
+        JOIN
+    championships c ON e.championship_id = c.id
+        LEFT JOIN
+    tracks t ON e.track_id = t.id
+WHERE
+    e.id = $1
+ORDER BY
+    e.event_date ASC;
+	`
 	`
 
 	sqlGetUpcomingEvents = `

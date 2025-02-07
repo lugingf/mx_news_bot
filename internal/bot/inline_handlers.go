@@ -82,7 +82,7 @@ func (b *Bot) showEventRaceResult(c tele.Context, uqData string) error {
 	raceType := parts[2]
 	switch {
 	case raceType == service.EventTypeTripleCrownStandings:
-		results, err := b.app.GetTripleCrownStandings(eventID, class)
+		results, event, err := b.app.GetTripleCrownStandings(eventID, class)
 		if err != nil {
 			b.log.Error("Event Race Result Triple: Failed to fetch result details",
 				"eventID", eventID,
@@ -95,7 +95,7 @@ func (b *Bot) showEventRaceResult(c tele.Context, uqData string) error {
 		}
 
 		for _, result := range results {
-			message := b.formatter.FormatTripleCrownResultTable(result)
+			message := b.formatter.FormatTripleCrownResultTable(event.ChampionshipName, event.Name, result)
 			err = c.Send(message, &tele.SendOptions{ParseMode: tele.ModeMarkdown})
 			if err != nil {
 				b.log.Error("Failed to send event result", "error", err)

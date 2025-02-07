@@ -227,7 +227,7 @@ func (b *BotBackend) GetEventRaces(eventID int) ([]models.EventRace, error) {
 		return nil, nil
 	}
 
-	//format, err := b.repo.GetEventFormat(eventID)
+	//format, err := b.repo.GetEventByID(eventID)
 	//if err != nil {
 	//	return nil, errors.Wrap(err, "bot: could not fetch format by ID")
 	//}
@@ -266,80 +266,74 @@ func (b *BotBackend) GetEventRaceResultByDetails(eventID int, class, raceType st
 	return race, nil
 }
 
-func (b *BotBackend) GetTripleCrownStandings(eventID int, class string) ([]models.RaceResult, error) {
+func (b *BotBackend) GetTripleCrownStandings(eventID int, class string) ([]models.StandingsRow, models.Event, error) {
 	races, err := b.repo.GetTripleCrownRaceResults(eventID, class)
 	if err != nil {
 		b.log.Error("Failed to get event result", "error", err)
-		return nil, errors.New("could not fetch event result")
+		return nil, models.Event{}, errors.New("could not fetch event result")
 	}
 
 	if races == nil {
-		return nil, errors.New("no data found")
+		return nil, models.Event{}, errors.New("no data found")
 	}
 
-	// Карта для агрегации позиций по гонщикам
-	riderScores := make(map[string][]int)
-
-	b.log.Info("Got triple crown races", "count", len(races))
-	b.log.Info("Got triple crown races", "Races", races)
+	penalty := make(map[string]int)
 	for _, race := range races {
-		if len(race.Results) == 0 {
-			b.log.Error("No results for race", "race", race.RaceType)
-			continue
-		}
+		penalty[race.RaceType] = len(race.Results) + 1
+	}
 
+	standingsMap := make(map[string]*models.StandingsRow)
+	for _, race := range races {
 		for _, rider := range race.Results {
-			riderScores[rider.RiderNumber] = append(riderScores[rider.RiderNumber], toInt(rider.Position))
+			pos, err := strconv.Atoi(rider.Position)
+			if err != nil {
+				continue
+			}
+
+			// Если гонщик ранее не встречался – создаём новую запись и назначаем штрафное значение для всех заездов.
+			if _, exists := standingsMap[rider.RiderNumber]; !exists {
+				standingsMap[rider.RiderNumber] = &models.StandingsRow{
+					RiderNumber: rider.RiderNumber,
+					Name:        rider.Name,
+					Bike:        rider.Bike,
+
+					R1: penalty["Race 1"],
+					R2: penalty["Race 2"],
+					R3: penalty["Race 3"],
+				}
+			}
+
+			switch race.RaceType {
+			case "Race 1":
+				standingsMap[rider.RiderNumber].R1 = pos
+			case "Race 2":
+				standingsMap[rider.RiderNumber].R2 = pos
+			case "Race 3":
+				standingsMap[rider.RiderNumber].R3 = pos
+			}
 		}
 	}
 
-	var results []models.Rider
-	for riderNumber, positions := range riderScores {
-		var totalPoints int
-		for _, pos := range positions {
-			totalPoints += pos
-		}
-
-		rKey := b.repo.GetRaceKey(class, "Race 1")
-		results = append(results, models.Rider{
-			RiderNumber: riderNumber,
-			Name:        races[rKey].Results[0].Name,
-			Bike:        races[rKey].Results[0].Bike,
-			Team:        races[rKey].Results[0].Team,
-			Position:    strconv.Itoa(totalPoints), // Итоговая сумма позиций
-		})
+	var standings []models.StandingsRow
+	for _, row := range standingsMap {
+		row.TotalPoints = row.R1 + row.R2 + row.R3
+		standings = append(standings, *row)
 	}
 
-	// Сортируем по итоговым очкам (чем меньше, тем выше)
-	sort.Slice(results, func(i, j int) bool {
-		return toInt(results[i].Position) < toInt(results[j].Position)
+	sort.Slice(standings, func(i, j int) bool {
+		return standings[i].TotalPoints < standings[j].TotalPoints
 	})
 
-	b.log.Info("Event result fetched", "races", len(results))
-
-	rKey := b.repo.GetRaceKey(class, "Race 1")
-	// Заворачиваем в RaceResult и возвращаем
-	finalResult := models.RaceResult{
-		ChampName:   races[rKey].ChampName,
-		EventName:   races[rKey].EventName,
-		EventCode:   races[rKey].EventCode,
-		RaceType:    "Triple Crown",
-		City:        races[rKey].City,
-		State:       races[rKey].State,
-		Track:       races[rKey].Track,
-		Date:        races[rKey].Date,
-		Round:       races[rKey].Round,
-		TotalRounds: races[rKey].TotalRounds,
-		Class:       class,
-		Results:     results,
+	for i := range standings {
+		standings[i].TotalPosition = i + 1
 	}
 
-	return []models.RaceResult{finalResult}, nil
-}
+	event, err := b.repo.GetEventByID(eventID)
+	if err != nil {
+		return nil, models.Event{}, errors.Wrap(err, "GetTripleCrownStandings: can't get event by ID")
+	}
 
-func toInt(str string) int {
-	val, _ := strconv.Atoi(str)
-	return val
+	return standings, event, nil
 }
 
 func (b *BotBackend) UpdateUserPreference(update storage.UserPreferenceUpdate) error {
