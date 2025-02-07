@@ -308,7 +308,6 @@ func (b *BotBackend) getTripleCrownStandings(eventID int, class string) ([]model
 		results = append(results, models.Rider{
 			RiderNumber: riderNumber,
 			Name:        races[total].Results[0].Name,
-			Hometown:    races[total].Results[0].Hometown,
 			Bike:        races[total].Results[0].Bike,
 			Team:        races[total].Results[0].Team,
 			Position:    strconv.Itoa(totalPoints), // Итоговая сумма позиций
