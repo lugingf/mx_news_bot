@@ -94,13 +94,11 @@ func (b *Bot) showEventRaceResult(c tele.Context, uqData string) error {
 			return c.Respond(&tele.CallbackResponse{Text: "Failed to fetch result details."})
 		}
 
-		for _, result := range results {
-			message := b.formatter.FormatTripleCrownResultTable(event.ChampionshipName, event.Name, result)
-			err = c.Send(message, &tele.SendOptions{ParseMode: tele.ModeMarkdown})
-			if err != nil {
-				b.log.Error("Failed to send event result", "error", err)
-				return c.Respond(&tele.CallbackResponse{Text: "Failed to send event result."})
-			}
+		message := b.formatter.FormatTripleCrownResultTable(event.ChampionshipName, event.Name, results)
+		err = c.Send(message, &tele.SendOptions{ParseMode: tele.ModeMarkdown})
+		if err != nil {
+			b.log.Error("Failed to send event result", "error", err)
+			return c.Respond(&tele.CallbackResponse{Text: "Failed to send event result."})
 		}
 
 	default:
