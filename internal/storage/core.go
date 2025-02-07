@@ -108,7 +108,9 @@ func (r *Repository) GetEventByID(ID int) (models.Event, error) {
 	var event models.Event
 
 	row := r.db.QueryRow(sqlGetEventByID, ID)
-	err := row.Scan(&event)
+	err := row.Scan(
+		&event.ID, &event.ChampionshipName, &event.Name, &event.Classes,
+		&event.Stadium, &event.RoundNumber, &event.TrackID, &event.Date, &event.Format, &event.Status)
 	if errors.Is(err, sql.ErrNoRows) {
 		return event, nil
 	}
