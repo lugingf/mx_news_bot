@@ -83,46 +83,42 @@ func (b *BotBackend) GetCurrentStandings(champID int, class, region string) ([]m
 		switch event.Format {
 		case eventTypeStandard:
 			// For standard events, use the finishing positions from the main race.
-			resultsMap, err := b.repo.GetRaceResultByDetails(event.ID, class, raceTypeMainEvent, region)
+			raceResult, err := b.repo.GetRaceResultByDetails(event.ID, class, raceTypeMainEvent, region)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get race result for event %d: %w", event.ID, err)
 			}
 
-			for _, raceResult := range resultsMap {
-				for _, rider := range raceResult.Results {
-					pos, err := strconv.Atoi(rider.Position)
-					if err != nil {
-						return nil, fmt.Errorf("failed to convert position %q to int: %w", rider.Position, err)
-					}
-
-					points, err := b.repo.GetPointsForPosition(champID, pos)
-					if err != nil {
-						return nil, fmt.Errorf("failed to get points for position %d: %w", pos, err)
-					}
-
-					riderPoints[rider.Name] += points
-					riderNames[rider.Name] = rider.Name
+			for _, rider := range raceResult.Results {
+				pos, err := strconv.Atoi(rider.Position)
+				if err != nil {
+					return nil, fmt.Errorf("failed to convert position %q to int: %w", rider.Position, err)
 				}
+
+				points, err := b.repo.GetPointsForPosition(champID, pos)
+				if err != nil {
+					return nil, fmt.Errorf("failed to get points for position %d: %w", pos, err)
+				}
+
+				riderPoints[rider.Name] += points
+				riderNames[rider.Name] = rider.Name
 			}
 
 		case eventTypeTripleCrown:
 			// For Tripple Crown events, aggregate finishing positions from three races.
 			sumPositions := make(map[string]int)
 			for _, raceType := range []string{raceTypeRace1, raceTypeRace2, raceTypeRace3} {
-				resultsMap, err := b.repo.GetRaceResultByDetails(event.ID, class, raceType, region)
+				raceResult, err := b.repo.GetRaceResultByDetails(event.ID, class, raceType, region)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get race result for event %d race type %s: %w", event.ID, raceType, err)
 				}
-				for _, raceResult := range resultsMap {
-					for _, rider := range raceResult.Results {
-						pos, err := strconv.Atoi(rider.Position)
-						if err != nil {
-							return nil, fmt.Errorf("failed to convert position %q to int: %w", rider.Position, err)
-						}
-
-						sumPositions[rider.Name] += pos
-						riderNames[rider.Name] = rider.Name
+				for _, rider := range raceResult.Results {
+					pos, err := strconv.Atoi(rider.Position)
+					if err != nil {
+						return nil, fmt.Errorf("failed to convert position %q to int: %w", rider.Position, err)
 					}
+
+					sumPositions[rider.Name] += pos
+					riderNames[rider.Name] = rider.Name
 				}
 			}
 
@@ -254,32 +250,23 @@ func (b *BotBackend) GetEventRaces(eventID int) ([]models.EventRace, error) {
 	return races, nil
 }
 
-func (b *BotBackend) GetEventRaceResultByDetails(eventID int, class, raceType string) ([]models.RaceResult, error) {
-	if raceType == EventTypeTripleCrownStandings {
-		return b.getTripleCrownStandings(eventID, class)
-	}
-
-	races, err := b.getRaceResultByDetails(eventID, class, raceType)
+func (b *BotBackend) GetEventRaceResultByDetails(eventID int, class, raceType string) (models.RaceResult, error) {
+	race, err := b.repo.GetRaceResultByDetails(eventID, class, raceType, "")
 	if err != nil {
-		return nil, errors.Wrap(err, "no race result")
+		b.log.Error("Failed to get event result", "error", err)
+		return race, errors.New("could not fetch event result")
 	}
 
-	result := make([]models.RaceResult, 0, len(races))
-	for _, class := range races {
-		result = append(result, class)
+	if race.Results == nil {
+		return race, errors.New("no data found")
 	}
 
-	sort.Slice(result, func(i, j int) bool {
-		if result[i].Class != result[j].Class {
-			return result[i].Class < result[j].Class
-		}
-		return result[i].RaceType < result[j].RaceType
-	})
+	b.log.Info("Event result fetched", "race", race.RaceType, "class", race.Class)
 
-	return result, nil
+	return race, nil
 }
 
-func (b *BotBackend) getTripleCrownStandings(eventID int, class string) ([]models.RaceResult, error) {
+func (b *BotBackend) GetTripleCrownStandings(eventID int, class string) ([]models.RaceResult, error) {
 	races, err := b.repo.GetTripleCrownRaceResults(eventID, class)
 	if err != nil {
 		b.log.Error("Failed to get event result", "error", err)
@@ -353,22 +340,6 @@ func (b *BotBackend) getTripleCrownStandings(eventID int, class string) ([]model
 func toInt(str string) int {
 	val, _ := strconv.Atoi(str)
 	return val
-}
-
-func (b *BotBackend) getRaceResultByDetails(eventID int, class, raceType string) (map[string]models.RaceResult, error) {
-	races, err := b.repo.GetRaceResultByDetails(eventID, class, raceType, "")
-	if err != nil {
-		b.log.Error("Failed to get event result", "error", err)
-		return nil, errors.New("could not fetch event result")
-	}
-
-	if races == nil {
-		return nil, errors.New("no data found")
-	}
-
-	b.log.Info("Event result fetched", "races", len(races))
-
-	return races, nil
 }
 
 func (b *BotBackend) UpdateUserPreference(update storage.UserPreferenceUpdate) error {

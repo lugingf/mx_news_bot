@@ -180,23 +180,23 @@ func (r *Repository) GetTripleCrownRaceResults(eventID int, class string) (map[s
 	return result, nil
 }
 
-func (r *Repository) GetRaceResultByDetails(eventID int, class, raceType, region string) (map[string]models.RaceResult, error) {
-	result := make(map[string]models.RaceResult)
+func (r *Repository) GetRaceResultByDetails(eventID int, class, raceType, region string) (models.RaceResult, error) {
+	result := models.RaceResult{}
 
 	rows, err := r.db.Query(sqlGetSXEventResultByDetails, eventID, class, raceType, region)
 	if err != nil {
 		r.log.Error("Failed to execute query", "error", err)
-		return nil, errors.New("unable to fetch race results from the database")
+		return result, errors.New("unable to fetch race results from the database")
 	}
 	defer rows.Close()
 
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
+		return result, nil
 	}
 
+	var raceResult models.RaceResult
 	for rows.Next() {
 		var rider models.Rider
-		var raceResult models.RaceResult
 
 		// Сканирование данных строки
 		err := rows.Scan(
@@ -217,25 +217,18 @@ func (r *Repository) GetRaceResultByDetails(eventID int, class, raceType, region
 			&rider.Bike,
 			&rider.Team,
 		)
+
 		if err != nil {
 			r.log.Error("Failed to scan row", "error", err)
-			return nil, errors.New("error scanning race results")
+			return result, errors.New("error scanning race results")
 		}
 
-		key := r.GetRaceKey(raceResult.Class, raceResult.RaceType)
-
-		if existingResult, ok := result[key]; ok {
-			existingResult.Results = append(existingResult.Results, rider)
-			result[key] = existingResult
-		} else {
-			raceResult.Results = []models.Rider{rider}
-			result[key] = raceResult
-		}
+		raceResult.Results = append(raceResult.Results, rider)
 	}
 
 	if err = rows.Err(); err != nil {
 		r.log.Error("Row iteration error", "error", err)
-		return nil, errors.New("error iterating over race results")
+		return result, errors.New("error iterating over race results")
 	}
 
 	return result, nil

@@ -72,7 +72,7 @@ func (b *Bot) showEventRaceResult(c tele.Context, uqData string) error {
 		return c.Respond(&tele.CallbackResponse{Text: "Sorry. Race data corrupted. We'll fix it soon"})
 	}
 
-	id, err := strconv.Atoi(parts[0])
+	eventID, err := strconv.Atoi(parts[0])
 	if err != nil {
 		b.log.Error("Bad unique Name data part", "unique_id", parts[0])
 		return c.Respond(&tele.CallbackResponse{Text: "Sorry. Race data corrupted. We'll fix it soon"})
@@ -80,49 +80,52 @@ func (b *Bot) showEventRaceResult(c tele.Context, uqData string) error {
 
 	class := parts[1]
 	raceType := parts[2]
-	results, err := b.app.GetEventRaceResultByDetails(id, class, raceType)
-	if err != nil {
-		b.log.Error("Failed to fetch results details",
-			"eventID", id,
-			"class", parts[1],
-			"race", parts[2],
-			"error", err,
-		)
+	switch {
+	case raceType == service.EventTypeTripleCrownStandings:
+		results, err := b.app.GetTripleCrownStandings(eventID, class)
+		if err != nil {
+			b.log.Error("Failed to fetch result details",
+				"eventID", eventID,
+				"class", parts[1],
+				"race", parts[2],
+				"error", err,
+			)
 
-		return c.Respond(&tele.CallbackResponse{Text: "Failed to fetch results details."})
-	}
+			return c.Respond(&tele.CallbackResponse{Text: "Failed to fetch result details."})
+		}
 
-	if raceType == service.EventTypeTripleCrownStandings {
 		for _, result := range results {
 			message := b.formatter.FormatTripleCrownResultTable(result)
 			err = c.Send(message, &tele.SendOptions{ParseMode: tele.ModeMarkdown})
 			if err != nil {
-				b.log.Error("Failed to send event results", "error", err)
-				return c.Respond(&tele.CallbackResponse{Text: "Failed to send event results."})
+				b.log.Error("Failed to send event result", "error", err)
+				return c.Respond(&tele.CallbackResponse{Text: "Failed to send event result."})
 			}
 		}
-		// Let's show race buttons again
-		return b.showEventRaces(c, fmt.Sprintf("%s%d", uqEventPrefix, id))
 
-	}
+	default:
+		result, err := b.app.GetEventRaceResultByDetails(eventID, class, raceType)
+		if err != nil {
+			b.log.Error("Failed to fetch result details",
+				"eventID", eventID,
+				"class", parts[1],
+				"race", parts[2],
+				"error", err,
+			)
 
-	for _, result := range results {
+			return c.Respond(&tele.CallbackResponse{Text: "Failed to fetch result details."})
+		}
+
 		message := b.formatter.FormatEventResultTable(result)
 
 		err = c.Send(message, &tele.SendOptions{ParseMode: tele.ModeMarkdown})
 		if err != nil {
-			b.log.Error("Failed to send event results", "error", err)
-			return c.Respond(&tele.CallbackResponse{Text: "Failed to send event results."})
+			b.log.Error("Failed to send event result", "error", err)
+			return c.Respond(&tele.CallbackResponse{Text: "Failed to send event result."})
 		}
 	}
 
-	// Let's show race buttons again
-	err = b.showEventRaces(c, fmt.Sprintf("%s%d", uqEventPrefix, id))
-	if err != nil {
-		b.log.Error("Failed to show race button", "error", err)
-	}
-
-	return nil
+	return b.showEventRaces(c, fmt.Sprintf("%s%d", uqEventPrefix, eventID))
 }
 
 // showEventRaces shows the details of a specific event

@@ -69,8 +69,7 @@ JOIN tracks ON events.track_id = tracks.id
 JOIN championships ON events.championship_id = championships.id
 JOIN riders ON riders.id = a.rider_id
 JOIN rider_teams ON a.rider_team_id = rider_teams.id
-WHERE a.championship_id = 1
-  AND events.id = $1
+WHERE events.id = $1
   AND a.class = $2
   AND a.race_type = $3
   AND (
