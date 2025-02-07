@@ -102,7 +102,7 @@ func (b *Bot) showEventRaceResult(c tele.Context, uqData string) error {
 		}
 		// Let's show race buttons again
 		return b.showEventRaces(c, fmt.Sprintf("%s%d", uqEventPrefix, id))
-		
+
 	}
 
 	for _, result := range results {

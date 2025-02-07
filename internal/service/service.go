@@ -236,6 +236,7 @@ func (b *BotBackend) GetEventRaces(eventID int) ([]models.EventRace, error) {
 		return nil, errors.Wrap(err, "bot: could not fetch event by ID")
 	}
 
+	b.log.Info("Event format", "format", event.Format)
 	// For Triple Crown we are interested in overall standings after 3 races
 	// We need additional buttons
 	if event.Format == eventTypeTripleCrown {
