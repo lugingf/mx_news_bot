@@ -163,20 +163,38 @@ func (f *TgFormatter) FormatEventResultTable(event models.RaceResult) string {
 	return text
 }
 
-func (f *TgFormatter) FormatTripleCrownResultTable(champName, eventName string, results []models.StandingsRow) string {
+func (f *TgFormatter) FormatTripleCrownResultTable(event models.Event, class string, results []models.StandingsRow) string {
 	var builder strings.Builder
 
 	// Header with championship and event name
-	builder.WriteString(fmt.Sprintf("🏆 *%s - %s*\n\n", champName, eventName))
+	builder.WriteString(fmt.Sprintf(
+		"🏆 *%s - %s*\n\n",
+		event.ChampionshipName, event.Name,
+	))
+	builder.WriteString(fmt.Sprintf(
+		`%s *Date:* %s
+%s *Location:* %s, %s
+%s *Track:* %s
+%s *Race:* %s
+%s *Round:* %s
+%s *Class:* %s
+
+`,
+		EmojiCalendar, event.Date.Format("02.01.2006"),
+		EmojiPin, event.Stadium,
+		EmojiFlag, event.Format,
+		EmojiBook, event.RoundNumber,
+		EmojiBook, class,
+	))
 	builder.WriteString("```")
 	// Table header
-	builder.WriteString(fmt.Sprintf("%-8s | %-4s | %-20s | %-10s | %-3s | %-3s | %-3s | %-5s\n",
-		"Position", "Num", "Name", "Bike", "R1", "R2", "R3", "Total"))
+	builder.WriteString(fmt.Sprintf("%-2s | %-3s | %-20s | %-8s | %-2s | %-2s | %-2s | %-5s\n",
+		"Pos", "#", "Name", "Bike", "R1", "R2", "R3", "Total"))
 	builder.WriteString(strings.Repeat("-", 80) + "\n")
 
 	// Table rows
 	for _, row := range results {
-		builder.WriteString(fmt.Sprintf("%-8d | %-4s | %-20s | %-10s | %-3d | %-3d | %-3d | %-5d\n",
+		builder.WriteString(fmt.Sprintf("%-2d | %-3s | %-20s | %-8s | %-2d | %-2d | %-2d | %-5d\n",
 			row.TotalPosition, row.RiderNumber, row.Name, row.Bike, row.R1, row.R2, row.R3, row.TotalPoints))
 	}
 	builder.WriteString("```")
