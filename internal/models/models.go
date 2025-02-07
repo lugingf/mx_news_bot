@@ -73,9 +73,10 @@ type EventToCheck struct {
 }
 
 type EventRace struct {
-	EventID  int    `db:"id"`
-	Class    string `db:"class"`
-	RaceType string `db:"race_type"`
+	EventID     int    `db:"id"`
+	Class       string `db:"class"`
+	RaceType    string `db:"race_type"`
+	EventFormat string `db:"event_format"`
 }
 
 type Standing struct {
