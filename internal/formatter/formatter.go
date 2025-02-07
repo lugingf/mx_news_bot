@@ -187,13 +187,13 @@ func (f *TgFormatter) FormatTripleCrownResultTable(event models.Event, class str
 	))
 	builder.WriteString("```\n")
 	// Table header
-	builder.WriteString(fmt.Sprintf("%-2s | %-2s | %-13s | %-4s | %-2s | %-2s | %-2s | %-5s\n",
-		" P", "#", "Name", "Bike", "R1", "R2", "R3", "Total"))
-	builder.WriteString(strings.Repeat("-", 60) + "\n")
+	builder.WriteString(fmt.Sprintf("%-2s | %-2s | %-13s | %-4s | %-2s | %-2s | %-2s | %-3s\n",
+		" P", "#", "Name", "Bike", "R1", "R2", "R3", "Fin"))
+	builder.WriteString(strings.Repeat("-", 51) + "\n")
 
 	// Table rows
 	for _, row := range results {
-		builder.WriteString(fmt.Sprintf("%-2d | %-2s | %-13s | %-4s | %-2d | %-2d | %-2d | %-5d\n",
+		builder.WriteString(fmt.Sprintf("%-2d | %-2s | %-13s | %-4s | %-2d | %-2d | %-2d | %-3d\n",
 			row.TotalPosition, row.RiderNumber, shortenName(row.Name), shortenBike(row.Bike), row.R1, row.R2, row.R3, row.TotalPoints))
 	}
 	builder.WriteString("\n```")
