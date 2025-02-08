@@ -180,7 +180,7 @@ FROM
         LEFT JOIN
     tracks t ON e.track_id = t.id
 WHERE
-    e.event_date BETWEEN now() AND now() + interval '8 days'
+    e.event_date BETWEEN TO_CHAR(now()::DATE, 'YYYY-MM-DD')::DATE AND now() + interval '6 days'
 ORDER BY
     e.event_date ASC;
 	`
@@ -209,6 +209,17 @@ WHERE
 ORDER BY
     e.event_date ASC;
 	`
+
+	sqlChampRoundsCount = `
+SELECT
+    count(*)
+FROM
+    events e
+        JOIN
+    championships c ON e.championship_id = c.id
+WHERE c.id = $1
+;
+`
 
 	sqlGetCompletedEvents = `
 SELECT
@@ -272,6 +283,14 @@ const (
 		RETURNING event_code;
 	`
 
+	completeEvent = `
+		UPDATE events SET event_status = $1
+		              WHERE championship_id = $2 
+		                AND round_number = $3 
+		                AND event_code = $4
+		;
+	`
+
 	insertRaceResultQuery = `
 		INSERT INTO ama_supercross_results (
 			championship_id, event_code, event_name, race_type, class, round, 
@@ -280,6 +299,12 @@ const (
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		ON CONFLICT DO NOTHING;
 	`
+
+	getSXEventRacesResultCount = `
+		SELECT count(distinct race_type) 
+			FROM ama_supercross_results 
+		WHERE event_name = $1 AND championship_id = $2 group by event_name;
+`
 )
 
 //CREATE TABLE events

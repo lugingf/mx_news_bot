@@ -19,7 +19,11 @@ type Repository struct {
 	log *slog.Logger
 }
 
-const eventStatusCompleted = "completed"
+const (
+	eventStatusCompleted  = "completed"
+	eventStatusProcessing = "processing"
+	eventStatusUpcoming   = "upcoming"
+)
 
 // New initializes a new Repository instance
 func New(db *sqlx.DB, log *slog.Logger) *Repository {
@@ -237,6 +241,22 @@ func (r *Repository) GetRaceKey(class, race string) string {
 	return fmt.Sprintf("%s %s", class, race)
 }
 
+func (r *Repository) GetChampRoundsCount(champID string) (int, error) {
+	var count int
+
+	err := r.db.QueryRow(sqlGetCompletedEvents, champID).Scan(&count)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+
+	if err != nil {
+		r.log.Error("Failed to fetch completed events", "error", err)
+		return 0, errors.New("unable to fetch completed events from database")
+	}
+
+	return count, nil
+}
+
 func (r *Repository) GetCompletedEvents() ([]models.Event, error) {
 	var events []models.Event
 
@@ -326,7 +346,7 @@ func (r *Repository) UploadRaceResultsSMX(result models.RaceResult) error {
 
 	eventCode := ""
 	// championship_id, round_number, track_id, eventCode, event_date, event_status
-	err = tx.Get(&eventCode, insertEventQuery, championshipID, result.Round, trackID, result.EventCode, result.Date, result.Track, eventStatusCompleted)
+	err = tx.Get(&eventCode, insertEventQuery, championshipID, result.Round, trackID, result.EventCode, result.Date, result.Track, eventStatusUpcoming)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return errors.Wrap(err, "failed to insert event")
 	}
@@ -354,6 +374,24 @@ func (r *Repository) UploadRaceResultsSMX(result models.RaceResult) error {
 		if err != nil {
 			return errors.Wrap(err, "failed to insert race result")
 		}
+	}
+
+	racesUploaded := 0
+	err = tx.Get(&racesUploaded, getSXEventRacesResultCount, result.EventName, result.ChampName)
+	if err != nil {
+		return errors.Wrap(err, "failed to get race count")
+	}
+
+	if racesUploaded >= 3 {
+		_, err = tx.Exec(completeEvent,
+			eventStatusCompleted, championshipID, result.Round, result.EventCode)
+		if err != nil {
+			return errors.Wrap(err, "failed to complete event")
+		}
+
+		r.log.Warn("Event marked as COMPLETED", "event_name", result.EventName, "champ", result.ChampName)
+	} else {
+		r.log.Warn("Event updated but NOT completed", "event_name", result.EventName, "champ", result.ChampName)
 	}
 
 	return nil

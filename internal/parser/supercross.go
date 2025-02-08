@@ -106,8 +106,14 @@ func (p *AMASupercross) getRoundNumber(fileName string, event models.EventToChec
 	if strings.Contains(fileName, "Anaheim 2") {
 		return "3"
 	}
-	if strings.Contains(fileName, "Anaheim 2") {
+	if strings.Contains(fileName, "Glendale") {
 		return "4"
+	}
+	if strings.Contains(fileName, "Tampa") {
+		return "5"
+	}
+	if strings.Contains(fileName, "Detroit") {
+		return "6"
 	}
 	return "0"
 }
@@ -138,11 +144,15 @@ func (p *AMASupercross) getRaceResult(pdfFile string, file io.Reader, event mode
 	raceResult.ChampName = championshipSX
 	raceResult.Round = p.getRoundNumber(pdfFile, event)
 
-	// TODO get total rounds for champ this year
-	raceResult.TotalRounds = "17"
+	totalRounds, err := p.repo.GetChampRoundsCount(event.ChampionshipID)
+	if err != nil {
+		p.logger.Error("can't get total rounds count", "error", err)
+		totalRounds = 17
+	}
+	raceResult.TotalRounds = strconv.Itoa(totalRounds)
 
 	scanner := bufio.NewScanner(file)
-	err := p.parseTable(scanner, &raceResult)
+	err = p.parseTable(scanner, &raceResult)
 	if err != nil {
 		return models.RaceResult{}, errors.Wrapf(err, "parse race result %s", pdfFile)
 	}
