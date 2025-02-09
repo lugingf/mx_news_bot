@@ -377,7 +377,7 @@ func (r *Repository) UploadRaceResultsSMX(result models.RaceResult) error {
 	}
 
 	racesUploaded := 0
-	err = tx.Get(&racesUploaded, getSXEventRacesResultCount, result.EventName, result.ChampName)
+	err = tx.Get(&racesUploaded, getSXEventRacesResultCount, result.EventName, championshipID)
 	if err != nil {
 		return errors.Wrap(err, "failed to get race count")
 	}
