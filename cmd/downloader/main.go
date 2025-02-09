@@ -19,7 +19,7 @@ func main() {
 	defer cancel()
 
 	downloader := dwl.NewDownloader("https://results.supercrosslive.com/events/", "data/2025", &slog.Logger{})
-	eventList := []string{"Anaheim 1"}
+	eventList := []string{"Tampa"}
 
 	for _, eventName := range eventList {
 		if _, err := downloader.DownloadEventFiles(ctx, eventName); err != nil {
