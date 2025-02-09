@@ -244,7 +244,7 @@ func (r *Repository) GetRaceKey(class, race string) string {
 func (r *Repository) GetChampRoundsCount(champID string) (int, error) {
 	var count int
 
-	err := r.db.QueryRow(sqlGetCompletedEvents, champID).Scan(&count)
+	err := r.db.QueryRow(sqlChampRoundsCount, champID).Scan(&count)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, nil
 	}
