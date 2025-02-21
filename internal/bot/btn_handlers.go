@@ -106,7 +106,7 @@ func (b *Bot) showEventResults(c tele.Context) error {
 	var inlineButtons [][]tele.InlineButton
 
 	for i, event := range events {
-		if i > maxVisibleEvents {
+		if i >= maxVisibleEvents {
 			break
 		}
 		eventButton := tele.InlineButton{

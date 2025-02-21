@@ -23,11 +23,7 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	cfg, err := config.New(ctx)
-	if err != nil {
-		slog.Error("Config initialization failed", "error", err)
-		return
-	}
+	cfg := config.New("")
 
 	c := cfg.Yandex
 	checkChan := make(chan yandexai.PendingRequests)
@@ -39,7 +35,7 @@ func main() {
 
 	checker.Start(ctx)
 
-	err = convertPDFToText(pdfFile, textFile)
+	err := convertPDFToText(pdfFile, textFile)
 	if err != nil {
 		fmt.Println("Ошибка при конвертации PDF в текст:", err)
 		return
