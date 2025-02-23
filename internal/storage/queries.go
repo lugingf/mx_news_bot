@@ -301,7 +301,7 @@ const (
 	`
 
 	getSXEventRacesResultCount = `
-		SELECT count(distinct race_type) 
+		SELECT count(distinct CONCAT(race_type, class))
 			FROM ama_supercross_results 
 		WHERE event_name = $1 AND championship_id = $2 group by event_name;
 `
