@@ -35,7 +35,7 @@ func main() {
 
 	parser := prsr.New(repository, &pconf, logger)
 
-	eventNames := []string{"Tampa"}
+	eventNames := []string{"Daytona Beach"}
 	files, err := parser.CollectFiles(eventNames)
 	if err != nil {
 		logger.Error("Files collect error: %v", err)
