@@ -382,7 +382,7 @@ func (r *Repository) UploadRaceResultsSMX(result models.RaceResult) error {
 		return errors.Wrap(err, "failed to get race count")
 	}
 
-	if racesUploaded >= 3 {
+	if racesUploaded >= 6 {
 		_, err = tx.Exec(completeEvent,
 			eventStatusCompleted, championshipID, result.Round, result.EventCode)
 		if err != nil {
