@@ -117,6 +117,9 @@ func (p *AMASupercross) getRoundNumber(fileName string, event models.EventToChec
 	if strings.Contains(fileName, "Detroit") {
 		return "6"
 	}
+	if strings.Contains(fileName, "Indianapolis") {
+		return "9"
+	}
 	return "0"
 }
 
