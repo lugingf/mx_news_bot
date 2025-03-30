@@ -306,30 +306,3 @@ const (
 		WHERE event_name = $1 AND championship_id = $2 group by event_name;
 `
 )
-
-//CREATE TABLE events
-//(
-//id               SERIAL PRIMARY KEY,
-//championship_id  INT REFERENCES championships (id),
-//classes          VARCHAR(255),
-//venue_name       VARCHAR(100),
-//round_number     INT  NOT NULL, -- Round number in the championship
-//track_id         INT,
-//event_date       DATE NOT NULL,
-//event_format     VARCHAR(50),   -- E.g., "Triple Crown", "Standard",
-//venue_info_url   VARCHAR(255),
-//surface_override VARCHAR(50),   -- Optional: specific surface type for this event
-//UNIQUE (championship_id, round_number)
-//);
-//
-//-- Alter
-//ALTER TABLE events
-//ADD COLUMN place              VARCHAR(100),
-//ADD COLUMN weather_conditions VARCHAR(50);
-//-- Optional override for track surface
-//
-//-- Updated Table: Events
-//ALTER TABLE events
-//ADD COLUMN event_status VARCHAR(50) NOT NULL DEFAULT 'upcoming',
-//-- Event status (e.g., "upcoming", "result_pending", "downloaded", "completed")
-//ADD COLUMN event_code   VARCHAR(10) NOT NULL DEFAULT '';

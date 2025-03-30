@@ -21,7 +21,7 @@ func main() {
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	downloader := dwl.NewDownloader("https://results.supercrosslive.com/events/", "data/2025", logger)
-	eventList := []string{"Indianapolis"}
+	eventList := []string{"Seattle"}
 
 	for _, eventName := range eventList {
 		if _, err := downloader.DownloadEventFiles(ctx, eventName); err != nil {
