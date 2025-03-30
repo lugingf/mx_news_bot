@@ -117,7 +117,7 @@ func (d *AMASupercross) getRaces(ctx context.Context, eventURL string) (raceSet,
 		chromedp.Navigate(eventURL),
 		chromedp.WaitVisible(`a`, chromedp.ByQuery), // Ensure the links are visible
 		chromedp.Evaluate(`Array.from(document.querySelectorAll('a'))
-  .filter(a => a.textContent.trim() === '250 Main Event')
+  .filter(a => a.innerText === '250 Main Event')
   .map(a => a.href)`, &links250),
 		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => a.textContent.match(/250 Main(?: Event)?/)).map(a => a.href)`, &links250),
 		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => a.textContent.match(/250 East\/West Showdown Main(?: Event)?/)).map(a => a.href)`, &links250),
