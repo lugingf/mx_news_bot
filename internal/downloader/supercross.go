@@ -108,7 +108,7 @@ type raceSet struct {
 }
 
 func (d *AMASupercross) getRaces(ctx context.Context, eventURL string) (raceSet, error) {
-	var links250, links250M, links250EWS, links250WH, links250EH, links250H1, links250H2 []string
+	var links250, links250M, links250EWS, links250WH, links250W, links250EH, links250E, links250H1, links250H2 []string
 	var links250R1, links250R2, links250R3 []string
 	var links450, links450H1, links450H2 []string
 	var links450R1, links450R2, links450R3 []string
@@ -121,7 +121,9 @@ func (d *AMASupercross) getRaces(ctx context.Context, eventURL string) (raceSet,
 		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => a.textContent.match(/250 East\/West Showdown Main(?: Event)?/)).map(a => a.href)`, &links250EWS),
 		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /250 Heat (\#?1)/.test(a.textContent)).map(a => a.href)`, &links250H1),
 		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /250 West Heat/.test(a.textContent)).map(a => a.href)`, &links250WH),
+		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /250 West/.test(a.textContent)).map(a => a.href)`, &links250WH),
 		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /250 East Heat/.test(a.textContent)).map(a => a.href)`, &links250EH),
+		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /250 East/.test(a.textContent)).map(a => a.href)`, &links250EH),
 		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /250 Heat (\#?2)/.test(a.textContent)).map(a => a.href)`, &links250H2),
 		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /250 Race (\#?1)/.test(a.textContent)).map(a => a.href)`, &links250R1),
 		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /250 Race (\#?2)/.test(a.textContent)).map(a => a.href)`, &links250R2),
@@ -144,7 +146,9 @@ func (d *AMASupercross) getRaces(ctx context.Context, eventURL string) (raceSet,
 			"250 Heat_1":     links250H1,
 			"250 Heat_2":     links250H2,
 			"250 West_Heat":  links250WH,
+			"250 West":       links250W,
 			"250 East_Heat":  links250EH,
+			"250 East":       links250E,
 			"250 Race#1":     links250R1,
 			"250 Race#2":     links250R2,
 			"250 Race#3":     links250R3,
