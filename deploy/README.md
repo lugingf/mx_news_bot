@@ -1,23 +1,46 @@
-# Deploy Notes
+# Deploy Notes (`mx_news_bot`)
 
-`mx_news_bot` deploys to a local port (`PUBLIC_PORT`, default `18085`) and does not bind host `:80`.
+`mx_news_bot` deploys blue-green to `/opt/mx_news_bot`.
 
-This keeps it compatible with a shared host where another bot (`astro_mind_bot`) already uses the same nginx instance.
+## Required GitHub Secrets
 
-Host nginx should route a dedicated webhook path to this local port, for example:
+- `AWS_SSH_HOST`
+- `AWS_SSH_USER`
+- `AWS_SSH_PORT`
+- `AWS_SSH_PRIVATE_KEY`
+- `GHCR_USERNAME`
+- `GHCR_TOKEN`
+- `DEPLOY_CONFIG_JSON` (runtime `config.json` content)
+
+## Required GitHub Variables
+
+- `APP_NAME=mx_news_bot`
+- `APP_DIR=/opt/mx_news_bot`
+- `PUBLIC_PORT=8585`
+- `PUBLIC_BIND_ADDR=127.0.0.1`
+- `DEPLOY_NETWORK=mx_news_bot_net` (or custom)
+- `WEBHOOK_PATH=/webhook-mx`
+- `METRICS_PATH=/metrics-mx` (recommended)
+- `ENABLE_HOST_GATEWAY=true` (recommended if DB is on host)
+
+## Nginx (shared host with `astro_mind_bot`)
 
 ```nginx
-location = /tg/mx/webhook {
-    proxy_pass http://127.0.0.1:18085;
+server {
+    listen 443 ssl;
+    server_name lugingfwebhookambot.com;
+
+    ssl_certificate /etc/letsencrypt/live/lugingfwebhookambot.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/lugingfwebhookambot.com/privkey.pem;
+
+    location = /webhook-path {
+        proxy_pass http://127.0.0.1:8443;
+    }
+
+    location = /webhook-mx {
+        proxy_pass http://127.0.0.1:8585;
+    }
 }
 ```
 
-Required GitHub Actions variables/secrets:
-
-- `vars.WEBHOOK_PATH` (example: `/tg/mx/webhook`)
-- `vars.ENABLE_HOST_GATEWAY=true` (recommended when DB is on host port, e.g. `localhost:6444` from host perspective)
-- `secrets.DEPLOY_CONFIG_JSON` (runtime `config.json`)
-- `secrets.AWS_SSH_HOST`, `secrets.AWS_SSH_USER`, `secrets.AWS_SSH_PRIVATE_KEY`
-- `secrets.GHCR_USERNAME`, `secrets.GHCR_TOKEN` (for private GHCR pulls)
-
-If app runs in Docker and DB is currently exposed on host `:6444`, set DB host in deploy config to `host.docker.internal`.
+Use HTTP for local upstream ports (`8443`, `8585`), because TLS is terminated by host nginx.

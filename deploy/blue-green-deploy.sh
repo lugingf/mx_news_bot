@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-APP_NAME="${APP_NAME:-mx-news-bot}"
-APP_DIR="${APP_DIR:-/opt/mx-news-bot}"
+APP_NAME="${APP_NAME:-mx_news_bot}"
+APP_DIR="${APP_DIR:-/opt/mx_news_bot}"
 NETWORK="${NETWORK:-${APP_NAME}_net}"
-PUBLIC_PORT="${PUBLIC_PORT:-18085}"
+PUBLIC_PORT="${PUBLIC_PORT:-8585}"
 PUBLIC_BIND_ADDR="${PUBLIC_BIND_ADDR:-127.0.0.1}"
 IMAGE="${IMAGE:?IMAGE is required}"
 HEALTH_ATTEMPTS="${HEALTH_ATTEMPTS:-30}"
 HEALTH_SLEEP_SECONDS="${HEALTH_SLEEP_SECONDS:-2}"
 BOT_PORT="${BOT_PORT:-8085}"
 METRICS_PORT="${METRICS_PORT:-9595}"
-METRICS_PATH="${METRICS_PATH:-/metrics}"
+METRICS_PATH="${METRICS_PATH:-/metrics-mx}"
 WEBHOOK_PATH="${WEBHOOK_PATH:?WEBHOOK_PATH is required}"
 ENABLE_HOST_GATEWAY="${ENABLE_HOST_GATEWAY:-true}"
 
@@ -47,7 +47,7 @@ if [[ "${WEBHOOK_PATH:0:1}" != "/" ]]; then
   WEBHOOK_PATH="/${WEBHOOK_PATH}"
 fi
 if [[ -z "${METRICS_PATH}" ]]; then
-  METRICS_PATH="/metrics"
+  METRICS_PATH="/metrics-mx"
 fi
 if [[ "${METRICS_PATH:0:1}" != "/" ]]; then
   METRICS_PATH="/${METRICS_PATH}"

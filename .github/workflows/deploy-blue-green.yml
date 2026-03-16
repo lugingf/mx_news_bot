@@ -99,13 +99,13 @@ jobs:
       DEPLOY_CONFIG_JSON: ${{ secrets.DEPLOY_CONFIG_JSON }}
       GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
-      APP_NAME: ${{ vars.APP_NAME }}
-      APP_DIR: ${{ vars.APP_DIR }}
-      PUBLIC_PORT: ${{ vars.PUBLIC_PORT || '18085' }}
+      APP_NAME: ${{ vars.APP_NAME || 'mx_news_bot' }}
+      APP_DIR: ${{ vars.APP_DIR || '/opt/mx_news_bot' }}
+      PUBLIC_PORT: ${{ vars.PUBLIC_PORT || '8585' }}
       PUBLIC_BIND_ADDR: ${{ vars.PUBLIC_BIND_ADDR || '127.0.0.1' }}
-      NETWORK: ${{ vars.DEPLOY_NETWORK }}
+      NETWORK: ${{ vars.DEPLOY_NETWORK || 'mx_news_bot_net' }}
       WEBHOOK_PATH: ${{ vars.WEBHOOK_PATH }}
-      METRICS_PATH: ${{ vars.METRICS_PATH || '/metrics' }}
+      METRICS_PATH: ${{ vars.METRICS_PATH || '/metrics-mx' }}
       ENABLE_HOST_GATEWAY: ${{ vars.ENABLE_HOST_GATEWAY || 'true' }}
 
     steps:
@@ -135,14 +135,14 @@ jobs:
       - name: Upload deploy script
         run: |
           PORT="${AWS_SSH_PORT:-22}"
-          REMOTE_DIR="${APP_DIR:-/opt/mx-news-bot}"
+          REMOTE_DIR="${APP_DIR:-/opt/mx_news_bot}"
           ssh -p "${PORT}" "${AWS_SSH_USER}@${AWS_SSH_HOST}" "mkdir -p '${REMOTE_DIR}'"
           scp -P "${PORT}" ./deploy/blue-green-deploy.sh "${AWS_SSH_USER}@${AWS_SSH_HOST}:${REMOTE_DIR}/blue-green-deploy.sh"
 
       - name: Upload runtime config
         run: |
           PORT="${AWS_SSH_PORT:-22}"
-          REMOTE_DIR="${APP_DIR:-/opt/mx-news-bot}"
+          REMOTE_DIR="${APP_DIR:-/opt/mx_news_bot}"
           TMP_CONFIG="$(mktemp)"
           printf '%s' "${DEPLOY_CONFIG_JSON}" > "${TMP_CONFIG}"
           scp -P "${PORT}" "${TMP_CONFIG}" "${AWS_SSH_USER}@${AWS_SSH_HOST}:${REMOTE_DIR}/config.json"
@@ -152,7 +152,7 @@ jobs:
       - name: Blue-green deploy
         run: |
           PORT="${AWS_SSH_PORT:-22}"
-          REMOTE_DIR="${APP_DIR:-/opt/mx-news-bot}"
+          REMOTE_DIR="${APP_DIR:-/opt/mx_news_bot}"
           IMAGE="${{ needs.build-and-push-image.outputs.image }}"
           GHCR_USER="${GHCR_USERNAME:-${GITHUB_ACTOR}}"
           ssh -p "${PORT}" "${AWS_SSH_USER}@${AWS_SSH_HOST}" "chmod +x '${REMOTE_DIR}/blue-green-deploy.sh' && APP_NAME='${APP_NAME}' APP_DIR='${REMOTE_DIR}' PUBLIC_PORT='${PUBLIC_PORT}' PUBLIC_BIND_ADDR='${PUBLIC_BIND_ADDR}' NETWORK='${NETWORK}' WEBHOOK_PATH='${WEBHOOK_PATH}' METRICS_PATH='${METRICS_PATH}' ENABLE_HOST_GATEWAY='${ENABLE_HOST_GATEWAY}' IMAGE='${IMAGE}' GHCR_USERNAME='${GHCR_USER}' GHCR_TOKEN='${GHCR_TOKEN}' '${REMOTE_DIR}/blue-green-deploy.sh'"
