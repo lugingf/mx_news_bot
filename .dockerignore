@@ -1,0 +1,14 @@
+.git
+.github
+.idea
+data
+output
+maps
+*.log
+*.out
+config.json
+.env.local
+mx_news_bot
+download
+parse
+upload

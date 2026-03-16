@@ -1,0 +1,183 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+APP_NAME="${APP_NAME:-mx-news-bot}"
+APP_DIR="${APP_DIR:-/opt/mx-news-bot}"
+NETWORK="${NETWORK:-${APP_NAME}_net}"
+PUBLIC_PORT="${PUBLIC_PORT:-18085}"
+PUBLIC_BIND_ADDR="${PUBLIC_BIND_ADDR:-127.0.0.1}"
+IMAGE="${IMAGE:?IMAGE is required}"
+HEALTH_ATTEMPTS="${HEALTH_ATTEMPTS:-30}"
+HEALTH_SLEEP_SECONDS="${HEALTH_SLEEP_SECONDS:-2}"
+BOT_PORT="${BOT_PORT:-8085}"
+METRICS_PORT="${METRICS_PORT:-9595}"
+METRICS_PATH="${METRICS_PATH:-/metrics}"
+WEBHOOK_PATH="${WEBHOOK_PATH:?WEBHOOK_PATH is required}"
+ENABLE_HOST_GATEWAY="${ENABLE_HOST_GATEWAY:-true}"
+
+GHCR_USERNAME="${GHCR_USERNAME:-}"
+GHCR_TOKEN="${GHCR_TOKEN:-}"
+
+BLUE_NAME="${APP_NAME}-blue"
+GREEN_NAME="${APP_NAME}-green"
+PROXY_NAME="${APP_NAME}-proxy"
+ACTIVE_FILE="${APP_DIR}/active_color"
+CONFIG_PATH="${APP_DIR}/config.json"
+NGINX_DIR="${APP_DIR}/nginx"
+NGINX_CONF="${NGINX_DIR}/default.conf"
+
+log() {
+  printf '[deploy] %s\n' "$*"
+}
+
+docker_run_extra_args=()
+if [[ "${ENABLE_HOST_GATEWAY}" == "true" ]]; then
+  docker_run_extra_args+=(--add-host "host.docker.internal:host-gateway")
+fi
+
+mkdir -p "${APP_DIR}" "${NGINX_DIR}"
+
+if [[ ! -f "${CONFIG_PATH}" ]]; then
+  log "missing config file: ${CONFIG_PATH}"
+  exit 1
+fi
+chmod 644 "${CONFIG_PATH}" || true
+
+if [[ "${WEBHOOK_PATH:0:1}" != "/" ]]; then
+  WEBHOOK_PATH="/${WEBHOOK_PATH}"
+fi
+if [[ -z "${METRICS_PATH}" ]]; then
+  METRICS_PATH="/metrics"
+fi
+if [[ "${METRICS_PATH:0:1}" != "/" ]]; then
+  METRICS_PATH="/${METRICS_PATH}"
+fi
+
+if [[ -n "${GHCR_USERNAME}" && -n "${GHCR_TOKEN}" ]]; then
+  log "login to ghcr.io"
+  echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-stdin
+fi
+
+if ! docker network inspect "${NETWORK}" >/dev/null 2>&1; then
+  log "create docker network ${NETWORK}"
+  docker network create "${NETWORK}"
+fi
+
+log "pull image ${IMAGE}"
+docker pull "${IMAGE}"
+
+active=""
+if [[ -f "${ACTIVE_FILE}" ]]; then
+  active="$(cat "${ACTIVE_FILE}" || true)"
+fi
+if [[ "${active}" != "blue" && "${active}" != "green" ]]; then
+  if docker ps --format '{{.Names}}' | grep -qx "${BLUE_NAME}"; then
+    active="blue"
+  elif docker ps --format '{{.Names}}' | grep -qx "${GREEN_NAME}"; then
+    active="green"
+  else
+    active="green"
+  fi
+fi
+
+if [[ "${active}" == "blue" ]]; then
+  next="green"
+  old="blue"
+else
+  next="blue"
+  old="green"
+fi
+
+new_name="${APP_NAME}-${next}"
+old_name="${APP_NAME}-${old}"
+
+log "active=${active} next=${next}"
+
+if docker ps -a --format '{{.Names}}' | grep -qx "${new_name}"; then
+  log "remove previous ${new_name}"
+  docker rm -f "${new_name}" >/dev/null
+fi
+
+log "start candidate container ${new_name}"
+docker run -d \
+  --name "${new_name}" \
+  --network "${NETWORK}" \
+  "${docker_run_extra_args[@]}" \
+  --restart unless-stopped \
+  -v "${CONFIG_PATH}:/app/config.json:ro" \
+  "${IMAGE}"
+
+healthy=0
+for i in $(seq 1 "${HEALTH_ATTEMPTS}"); do
+  if ! docker ps --format '{{.Names}}' | grep -qx "${new_name}"; then
+    log "candidate ${new_name} is not running"
+    break
+  fi
+  if docker run --rm --network "${NETWORK}" curlimages/curl:8.12.1 \
+    -fsS "http://${new_name}:${METRICS_PORT}${METRICS_PATH}" >/dev/null; then
+    healthy=1
+    break
+  fi
+  sleep "${HEALTH_SLEEP_SECONDS}"
+done
+
+if [[ "${healthy}" != "1" ]]; then
+  log "candidate ${new_name} is unhealthy"
+  docker ps -a --filter "name=${new_name}" --format 'name={{.Names}} status={{.Status}}' || true
+  docker logs "${new_name}" | tail -n 200 || true
+  docker rm -f "${new_name}" >/dev/null || true
+  exit 1
+fi
+
+log "write nginx upstream to ${new_name}"
+cat > "${NGINX_CONF}" <<NGINX
+server {
+    listen 80;
+
+    location = ${WEBHOOK_PATH} {
+        proxy_pass http://${new_name}:${BOT_PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$http_x_real_ip;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+
+    location = ${METRICS_PATH} {
+        proxy_pass http://${new_name}:${METRICS_PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$http_x_real_ip;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+
+    location / {
+        return 404;
+    }
+}
+NGINX
+
+if docker ps -a --format '{{.Names}}' | grep -qx "${PROXY_NAME}"; then
+  docker rm -f "${PROXY_NAME}" >/dev/null
+fi
+
+log "start proxy container ${PROXY_NAME} on ${PUBLIC_BIND_ADDR}:${PUBLIC_PORT}"
+docker run -d \
+  --name "${PROXY_NAME}" \
+  --network "${NETWORK}" \
+  --restart unless-stopped \
+  -p "${PUBLIC_BIND_ADDR}:${PUBLIC_PORT}:80" \
+  -v "${NGINX_CONF}:/etc/nginx/conf.d/default.conf:ro" \
+  nginx:1.27-alpine
+
+echo "${next}" > "${ACTIVE_FILE}"
+
+if docker ps --format '{{.Names}}' | grep -qx "${old_name}"; then
+  log "stop old container ${old_name}"
+  docker rm -f "${old_name}" >/dev/null || true
+fi
+
+log "deployment completed successfully"
+docker image prune -af || true
+docker builder prune -af || true

@@ -24,10 +24,11 @@ func main() {
 	eventList := []string{"Philadelphia"}
 
 	for _, eventName := range eventList {
-		if _, err := downloader.DownloadEventFiles(ctx, eventName); err != nil {
+		changed, err := downloader.DownloadEventFiles(ctx, eventName)
+		if err != nil {
 			fmt.Printf("Error in eventName %s: %v\n", eventName, err)
 		} else {
-			fmt.Printf("All files downloaded successfully for event name  %s.\n", eventName)
+			fmt.Printf("Changed files for %s: %d\n", eventName, len(changed))
 		}
 	}
 }

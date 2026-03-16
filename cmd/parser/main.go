@@ -38,7 +38,7 @@ func main() {
 	eventNames := []string{"Indianapolis"}
 	files, err := parser.CollectFiles(eventNames)
 	if err != nil {
-		logger.Error("Files collect error: %v", err)
+		logger.Error("Files collect error", "error", err)
 		return
 	}
 	logger.Info("Files collected", "files", files)

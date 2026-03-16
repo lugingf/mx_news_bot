@@ -75,7 +75,7 @@ type RaceClass struct {
 }
 
 type EventToCheck struct {
-	ChampionshipID string    `db:"championship_id"`
+	ChampionshipID int       `db:"championship_id"`
 	Name           string    `db:"name"`
 	Classes        string    `db:"classes"`
 	RoundNumber    string    `db:"round_number"`

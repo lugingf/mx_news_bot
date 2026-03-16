@@ -38,12 +38,15 @@ func (b *Bot) setupHandlers() {
 }
 
 const (
-	uqShowAllEvents          = "show_all_events"
+	uqShowAllEventsPrefix    = "show_all_events_"
 	uqEventPrefix            = "event_"
 	uqRacePrefix             = "race_"
 	uqChampSchedulePrefix    = "champ_schedule_"
 	uqChampResultPrefix      = "champ_result_"
 	uqChampClassResultPrefix = "champ_class_result_"
+	uqSeasonSchedulePrefix   = "season_schedule_"
+	uqSeasonResultPrefix     = "season_result_"
+	uqSeasonEventsPrefix     = "season_events_"
 )
 
 // Middleware to handle inline button callbacks
@@ -52,7 +55,7 @@ func (b *Bot) setupInlineHandlers() {
 		data := strings.TrimPrefix(c.Callback().Data, "\u000c")
 
 		switch {
-		case data == uqShowAllEvents:
+		case strings.HasPrefix(data, uqShowAllEventsPrefix):
 			return b.showAllEvents(c)
 
 		case strings.HasPrefix(data, uqEventPrefix):
@@ -61,14 +64,23 @@ func (b *Bot) setupInlineHandlers() {
 		case strings.HasPrefix(data, uqRacePrefix):
 			return b.showEventRaceResult(c, data)
 
+		case strings.HasPrefix(data, uqSeasonSchedulePrefix):
+			return b.showScheduleChampionshipsBySeason(c, data)
+
 		case strings.HasPrefix(data, uqChampSchedulePrefix):
 			return b.showChampionshipScheduleFromNow(c, data)
+
+		case strings.HasPrefix(data, uqSeasonResultPrefix):
+			return b.showResultsChampionshipsBySeason(c, data)
 
 		case strings.HasPrefix(data, uqChampResultPrefix):
 			return b.showChampClassesMenuStandings(c, data)
 
 		case strings.HasPrefix(data, uqChampClassResultPrefix):
 			return b.showCurrentStandings(c, data)
+
+		case strings.HasPrefix(data, uqSeasonEventsPrefix):
+			return b.showEventResultsBySeason(c, data, false)
 		}
 
 		b.log.Error("Failed to determine callback", "data", data)

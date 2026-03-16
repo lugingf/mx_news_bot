@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
-	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
@@ -30,14 +29,29 @@ func New(db *sqlx.DB, log *slog.Logger) *Repository {
 	return &Repository{db: db, log: log}
 }
 
-// GetAllChampionships fetches all available championships
-func (r *Repository) GetAllChampionships() ([]models.Championship, error) {
+// GetAllChampionshipsBySeason fetches all championships for a given season.
+func (r *Repository) GetAllChampionshipsBySeason(season int) ([]models.Championship, error) {
 	var championships []models.Championship
-	err := r.db.Select(&championships, sqlGetAllChampionships, time.Now().Year())
+	err := r.db.Select(&championships, sqlGetAllChampionships, season)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to fetch championships from database")
 	}
 	return championships, nil
+}
+
+func (r *Repository) GetAvailableSeasons() ([]int, error) {
+	var seasons []int
+
+	err := r.db.Select(&seasons, sqlGetAvailableSeasons)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to fetch available seasons from database")
+	}
+
+	return seasons, nil
 }
 
 // GetChampionshipClasses fetches all available championships
@@ -50,10 +64,10 @@ func (r *Repository) GetChampionshipClasses(champID int) ([]models.RaceClass, er
 	return classes, nil
 }
 
-// GetChampionshipsWithRaces fetches all available championships
-func (r *Repository) GetChampionshipsWithRaces() ([]models.Championship, error) {
+// GetChampionshipsWithRacesBySeason fetches championships with completed races for a given season.
+func (r *Repository) GetChampionshipsWithRacesBySeason(season int) ([]models.Championship, error) {
 	var championships []models.Championship
-	err := r.db.Select(&championships, sqlGetChampionshipWithRaces, time.Now().Year())
+	err := r.db.Select(&championships, sqlGetChampionshipWithRaces, season)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to fetch championships from database")
 	}
@@ -89,23 +103,34 @@ func (r *Repository) GetChampEventsFromNow(champID int) ([]models.Event, error) 
 	return events, nil
 }
 
-func (r *Repository) GetNextEvent() (models.EventToCheck, error) {
-	var event []models.EventToCheck
+func (r *Repository) GetChampEvents(champID int) ([]models.Event, error) {
+	var events []models.Event
 
-	err := r.db.Select(&event, sqlGetNextEventToCheck)
+	err := r.db.Select(&events, sqlGetEventsByChampID, champID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return models.EventToCheck{}, nil
+		return nil, nil
 	}
 
 	if err != nil {
-		return models.EventToCheck{}, errors.Wrap(err, "unable to check next upcoming event from database")
+		return nil, errors.Wrap(err, "unable to fetch events from database")
 	}
 
-	if len(event) == 0 {
-		return models.EventToCheck{}, nil
+	return events, nil
+}
+
+func (r *Repository) GetEventsToCheck(championshipName string, completedLookbackDays int) ([]models.EventToCheck, error) {
+	var events []models.EventToCheck
+
+	err := r.db.Select(&events, sqlGetEventsToCheck, championshipName, completedLookbackDays)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
 	}
 
-	return event[0], nil
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to fetch events to check from database")
+	}
+
+	return events, nil
 }
 
 func (r *Repository) GetEventByID(ID int) (models.Event, error) {
@@ -241,7 +266,7 @@ func (r *Repository) GetRaceKey(class, race string) string {
 	return fmt.Sprintf("%s %s", class, race)
 }
 
-func (r *Repository) GetChampRoundsCount(champID string) (int, error) {
+func (r *Repository) GetChampRoundsCount(champID int) (int, error) {
 	var count int
 
 	err := r.db.QueryRow(sqlChampRoundsCount, champID).Scan(&count)
@@ -268,6 +293,22 @@ func (r *Repository) GetCompletedEvents() ([]models.Event, error) {
 	if err != nil {
 		r.log.Error("Failed to fetch completed events", "error", err)
 		return nil, errors.New("unable to fetch completed events from database")
+	}
+
+	return events, nil
+}
+
+func (r *Repository) GetCompletedEventsBySeason(season int) ([]models.Event, error) {
+	var events []models.Event
+
+	err := r.db.Select(&events, sqlGetCompletedEventsBySeason, season)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
+	if err != nil {
+		r.log.Error("Failed to fetch completed events by season", "season", season, "error", err)
+		return nil, errors.New("unable to fetch completed events by season from database")
 	}
 
 	return events, nil
@@ -332,7 +373,7 @@ func (r *Repository) UploadRaceResultsSMX(result models.RaceResult) error {
 
 	// Insert championship if not exists
 	championshipID := 0
-	err = tx.Get(&championshipID, insertChampionshipQuery, result.ChampName, time.Now().Year(), pq.Array([]string{result.Class}))
+	err = tx.Get(&championshipID, insertChampionshipQuery, result.ChampName, result.Date.Year(), pq.Array([]string{result.Class}))
 	if err != nil {
 		return errors.Wrap(err, "failed to insert championship")
 	}
@@ -349,6 +390,11 @@ func (r *Repository) UploadRaceResultsSMX(result models.RaceResult) error {
 	err = tx.Get(&eventCode, insertEventQuery, championshipID, result.Round, trackID, result.EventCode, result.Date, result.Track, eventStatusUpcoming)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return errors.Wrap(err, "failed to insert event")
+	}
+
+	_, err = tx.Exec(deleteRaceResultsByRace, championshipID, result.EventCode, result.RaceType, result.Class)
+	if err != nil {
+		return errors.Wrap(err, "failed to delete previous race results")
 	}
 
 	for _, rider := range result.Results {
@@ -377,7 +423,7 @@ func (r *Repository) UploadRaceResultsSMX(result models.RaceResult) error {
 	}
 
 	racesUploaded := 0
-	err = tx.Get(&racesUploaded, getSXEventRacesResultCount, result.EventName, championshipID)
+	err = tx.Get(&racesUploaded, getSXEventRacesResultCount, result.EventCode, championshipID)
 	if err != nil {
 		return errors.Wrap(err, "failed to get race count")
 	}

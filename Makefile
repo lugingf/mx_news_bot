@@ -38,14 +38,14 @@ build:
 build-parser:
 	go build -ldflags "-s -w" -o parse ./cmd/parser
 
-build-aiparser:
-	go build -ldflags "-s -w" -o aiparse ./cmd/aiparser
-
 build-uploader:
 	go build -ldflags "-s -w" -o upload ./cmd/uploader
 
 build-downloader:
 	go build -ldflags "-s -w" -o download ./cmd/downloader
+
+load-schedule:
+	go run ./cmd/schedule_loader -file $(file)
 
 run-ng:
 	# nohup ssh -R 80:localhost:8585 serveo.net > serveo_url.txt 2>&1 &
@@ -75,6 +75,4 @@ docker-down:
 docker-restart:
 	docker-compose down
 	docker-compose up --build -d
-
-
 

@@ -13,8 +13,15 @@ const (
 	;	
 `
 
+	sqlGetAvailableSeasons = `
+	SELECT DISTINCT season_year
+	FROM championships
+	ORDER BY season_year DESC
+;
+`
+
 	sqlGetChampionshipWithRaces = `
-		SELECT DISTINCT c.*
+	SELECT DISTINCT c.*
 	FROM championships c
 	JOIN events e ON c.id = e.championship_id
 	WHERE e.event_status = 'completed' AND season_year = $1
@@ -56,7 +63,7 @@ SELECT
     tracks.name AS track,
     events.event_date,
     events.round_number AS round,
-    (SELECT COUNT(*) FROM events WHERE championship_id = 1) AS total_rounds,
+    (SELECT COUNT(*) FROM events ev WHERE ev.championship_id = events.championship_id) AS total_rounds,
     a.class,
     a.position,
     a.rider_number,
@@ -92,7 +99,7 @@ SELECT
     tracks.name AS track,
     events.event_date,
     events.round_number AS round,
-    (SELECT COUNT(*) FROM events WHERE championship_id = 1) AS total_rounds,
+    (SELECT COUNT(*) FROM events ev WHERE ev.championship_id = events.championship_id) AS total_rounds,
     a.class,
     a.position,
     a.rider_number,
@@ -119,8 +126,7 @@ FROM ama_supercross_results a
          JOIN championships ON events.championship_id = championships.id
          JOIN riders ON riders.id = a.rider_id
          JOIN rider_teams ON a.rider_team_id = rider_teams.id
-WHERE a.championship_id = 1
-  AND events.id = $1
+WHERE events.id = $1
 ;
 `
 	sqlGetNextEventToCheck = `
@@ -136,6 +142,28 @@ WHERE event_status = 'upcoming'
 AND event_date <= NOW()
 ORDER BY event_date LIMIT 1;
 	`
+
+	sqlGetEventsToCheck = `
+SELECT
+    e.championship_id,
+    e.name,
+    e.classes,
+    e.round_number::text AS round_number,
+    e.event_format,
+    e.event_date
+FROM events e
+JOIN championships c ON c.id = e.championship_id
+WHERE c.championship_name = $1
+  AND e.event_date <= NOW()
+  AND (
+        e.event_status IN ('upcoming', 'processing')
+        OR (
+            e.event_status = 'completed'
+            AND e.event_date >= NOW() - ($2 * INTERVAL '1 day')
+        )
+      )
+ORDER BY e.event_date DESC;
+`
 
 	sqlGetEventByID = `
 SELECT
@@ -210,6 +238,30 @@ ORDER BY
     e.event_date ASC;
 	`
 
+	sqlGetEventsByChampID = `
+SELECT
+    e.id,
+    c.championship_name,
+    e.name,
+    e.classes,
+    e.venue_name,
+    e.round_number,
+    e.track_id,
+    e.event_date,
+    event_format,
+    event_status
+FROM
+    events e
+        JOIN
+    championships c ON e.championship_id = c.id
+        LEFT JOIN
+    tracks t ON e.track_id = t.id
+WHERE
+    c.id = $1
+ORDER BY
+    e.event_date ASC;
+	`
+
 	sqlChampRoundsCount = `
 SELECT
     count(*)
@@ -241,6 +293,31 @@ FROM
     tracks t ON e.track_id = t.id
 WHERE
     e.event_status = 'completed'
+ORDER BY
+    e.event_date DESC;
+`
+
+	sqlGetCompletedEventsBySeason = `
+SELECT
+    e.id,
+    c.championship_name,
+    e.name,
+    e.classes,
+    e.venue_name,
+    e.round_number,
+    e.track_id,
+    e.event_date,
+    event_format,
+    event_status
+FROM
+    events e
+        JOIN
+    championships c ON e.championship_id = c.id
+        LEFT JOIN
+    tracks t ON e.track_id = t.id
+WHERE
+    e.event_status = 'completed'
+    AND c.season_year = $1
 ORDER BY
     e.event_date DESC;
 `
@@ -297,12 +374,25 @@ const (
 			rider_id, rider_team_id, rider_number, bike, position
 		)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-		ON CONFLICT DO NOTHING;
+		ON CONFLICT (championship_id, event_code, race_type, event_name, class, round, rider_id)
+		DO UPDATE SET
+			rider_team_id = EXCLUDED.rider_team_id,
+			rider_number = EXCLUDED.rider_number,
+			bike = EXCLUDED.bike,
+			position = EXCLUDED.position;
 	`
 
 	getSXEventRacesResultCount = `
 		SELECT count(distinct CONCAT(race_type, class))
 			FROM ama_supercross_results 
-		WHERE event_name = $1 AND championship_id = $2 group by event_name;
+		WHERE event_code = $1 AND championship_id = $2;
+`
+
+	deleteRaceResultsByRace = `
+		DELETE FROM ama_supercross_results
+		WHERE championship_id = $1
+		  AND event_code = $2
+		  AND race_type = $3
+		  AND class = $4;
 `
 )

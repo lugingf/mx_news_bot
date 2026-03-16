@@ -3,6 +3,7 @@ package bot
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	"mx_news_bot/internal/formatter"
 	"mx_news_bot/internal/service"
 	"sort"
 	"strconv"
@@ -13,25 +14,13 @@ import (
 
 // showAllEvents shows all completed events with inline buttons
 func (b *Bot) showAllEvents(c tele.Context) error {
-	events, err := b.app.GetCompletedEvents()
-	if err != nil {
-		b.log.Error("Failed to fetch events", "error", err)
-		return c.Send("An error occurred while fetching events. Please try again later.")
+	data := strings.TrimPrefix(c.Callback().Data, "\u000c")
+	if !strings.HasPrefix(data, uqShowAllEventsPrefix) {
+		return c.Respond(&tele.CallbackResponse{Text: "Invalid callback payload"})
 	}
 
-	var inlineButtons [][]tele.InlineButton
-	for _, event := range events {
-		eventButton := tele.InlineButton{
-			Unique: fmt.Sprintf("%s%d", uqEventPrefix, event.ID),
-			Text:   fmt.Sprintf("%s (%s)", event.Name, event.Date.Format("02.01.2006")),
-		}
-		inlineButtons = append(inlineButtons, []tele.InlineButton{eventButton})
-	}
-
-	b.log.Info("Showing all events", "events", events, "buttons", inlineButtons)
-
-	inlineMarkup := &tele.ReplyMarkup{InlineKeyboard: inlineButtons}
-	return c.Edit("All events:", inlineMarkup)
+	seasonPart := strings.TrimPrefix(data, uqShowAllEventsPrefix)
+	return b.showEventResultsBySeason(c, fmt.Sprintf("%s%s", uqSeasonEventsPrefix, seasonPart), true)
 }
 
 func (b *Bot) showChampionshipScheduleFromNow(c tele.Context, uqData string) error {
@@ -47,6 +36,9 @@ func (b *Bot) showChampionshipScheduleFromNow(c tele.Context, uqData string) err
 	if err != nil {
 		b.log.Error("Can't get champ events", "unique_id", noPref, "error", err)
 		return c.Respond(&tele.CallbackResponse{Text: "Sorry. Data corrupted. We'll fix it soon"})
+	}
+	if len(events) == 0 {
+		return c.Send("No events found for this championship.")
 	}
 
 	resultText := b.formatter.FormatEventsSchedule(events)
@@ -244,4 +236,107 @@ func (b *Bot) showCurrentStandings(c tele.Context, uqData string) error {
 	}
 
 	return b.showChampClassesMenuStandings(c, fmt.Sprintf("%s%d", uqChampResultPrefix, id))
+}
+
+func (b *Bot) showScheduleChampionshipsBySeason(c tele.Context, uqData string) error {
+	seasonPart := strings.TrimPrefix(uqData, uqSeasonSchedulePrefix)
+	season, err := strconv.Atoi(seasonPart)
+	if err != nil {
+		b.log.Error("Bad season data for schedule", "season", seasonPart, "error", err)
+		return c.Respond(&tele.CallbackResponse{Text: "Invalid season selected"})
+	}
+
+	champs, err := b.app.GetAllChampionshipsBySeason(season)
+	if err != nil {
+		b.log.Error("Failed to get all championships by season", "season", season, "error", err)
+		return c.Send("An error occurred while listing championships.")
+	}
+	if len(champs) == 0 {
+		return c.Send("No championships found for selected season.")
+	}
+
+	buttons := make([]tele.InlineButton, len(champs))
+	for i, champ := range champs {
+		buttons[i] = tele.InlineButton{
+			Text:   champ.Name,
+			Unique: fmt.Sprintf("%s%d", uqChampSchedulePrefix, champ.ID),
+		}
+	}
+
+	replyMarkup := &tele.ReplyMarkup{InlineKeyboard: buttonsToGrid(buttons, 1)}
+	return c.Send(fmt.Sprintf("Season %d: select a championship:", season), replyMarkup)
+}
+
+func (b *Bot) showResultsChampionshipsBySeason(c tele.Context, uqData string) error {
+	seasonPart := strings.TrimPrefix(uqData, uqSeasonResultPrefix)
+	season, err := strconv.Atoi(seasonPart)
+	if err != nil {
+		b.log.Error("Bad season data for standings", "season", seasonPart, "error", err)
+		return c.Respond(&tele.CallbackResponse{Text: "Invalid season selected"})
+	}
+
+	champs, err := b.app.GetChampionshipsWithRacesBySeason(season)
+	if err != nil {
+		b.log.Error("Failed to get championships with races by season", "season", season, "error", err)
+		return c.Send("An error occurred while listing championships.")
+	}
+	if len(champs) == 0 {
+		return c.Send("No completed championships found for selected season.")
+	}
+
+	buttons := make([]tele.InlineButton, len(champs))
+	for i, champ := range champs {
+		buttons[i] = tele.InlineButton{
+			Text:   champ.Name,
+			Unique: fmt.Sprintf("%s%d", uqChampResultPrefix, champ.ID),
+		}
+	}
+
+	replyMarkup := &tele.ReplyMarkup{InlineKeyboard: buttonsToGrid(buttons, 1)}
+	return c.Send(fmt.Sprintf("Season %d: select a championship:", season), replyMarkup)
+}
+
+func (b *Bot) showEventResultsBySeason(c tele.Context, uqData string, showAll bool) error {
+	seasonPart := strings.TrimPrefix(uqData, uqSeasonEventsPrefix)
+	season, err := strconv.Atoi(seasonPart)
+	if err != nil {
+		b.log.Error("Bad season data for event results", "season", seasonPart, "error", err)
+		return c.Respond(&tele.CallbackResponse{Text: "Invalid season selected"})
+	}
+
+	events, err := b.app.GetCompletedEventsBySeason(season)
+	if err != nil {
+		b.log.Error("Failed to fetch events by season", "season", season, "error", err)
+		return c.Send("An error occurred while fetching events. Please try again later.")
+	}
+	if len(events) == 0 {
+		return c.Send("No completed events found for selected season.")
+	}
+
+	const maxVisibleEvents = 5
+	limit := len(events)
+	if !showAll && limit > maxVisibleEvents {
+		limit = maxVisibleEvents
+	}
+
+	var inlineButtons [][]tele.InlineButton
+	for i := 0; i < limit; i++ {
+		event := events[i]
+		eventButton := tele.InlineButton{
+			Unique: fmt.Sprintf("%s%d", uqEventPrefix, event.ID),
+			Text:   fmt.Sprintf("%s %s (%s)", formatter.EmojiBowl, event.Name, event.Date.Format("02 Jan 2006")),
+		}
+		inlineButtons = append(inlineButtons, []tele.InlineButton{eventButton})
+	}
+
+	if !showAll && len(events) > maxVisibleEvents {
+		showAllButton := tele.InlineButton{
+			Unique: fmt.Sprintf("%s%d", uqShowAllEventsPrefix, season),
+			Text:   "Show All Events",
+		}
+		inlineButtons = append(inlineButtons, []tele.InlineButton{showAllButton})
+	}
+
+	inlineMarkup := &tele.ReplyMarkup{InlineKeyboard: inlineButtons}
+	return c.Send(fmt.Sprintf("%s Season %d: select an event:", formatter.EmojiScroll, season), inlineMarkup)
 }

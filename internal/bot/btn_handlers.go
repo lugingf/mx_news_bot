@@ -2,10 +2,10 @@ package bot
 
 import (
 	"fmt"
-	"mx_news_bot/internal/formatter"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/pkg/errors"
 	tele "gopkg.in/telebot.v3"
@@ -58,76 +58,38 @@ func (b *Bot) showUpcomingEvents(c tele.Context) error {
 }
 
 func (b *Bot) showCurrentStandingsMenu(c tele.Context) error {
-	currentChamps, err := b.app.GetChampionshipsWithRaces()
-	if err != nil {
-		b.log.Error("Failed to get championships with races", "error", err)
-		return c.Send("An error occurred while listing champs. Please try again later.")
-	}
-
-	buttons := make([]tele.InlineButton, len(currentChamps))
-	for i, champ := range currentChamps {
-		buttons[i] = tele.InlineButton{
-			Text:   champ.Name,
-			Unique: fmt.Sprintf("%s%d", uqChampResultPrefix, champ.ID),
-		}
-	}
-
-	replyMarkup := &tele.ReplyMarkup{InlineKeyboard: buttonsToGrid(buttons, 1)}
-	return c.Send("Please select a championship:", replyMarkup)
+	return b.showSeasonSelectionMenu(c, uqSeasonResultPrefix, "Please select a season for standings:")
 }
 
 func (b *Bot) showChampionshipSchedulesMenu(c tele.Context) error {
-	currentChamps, err := b.app.GetAllChampionships()
-	if err != nil {
-		b.log.Error("Failed to get all championships", "error", err)
-		return c.Send("An error occurred while listing champs. Please try again later.")
-	}
-
-	buttons := make([]tele.InlineButton, len(currentChamps))
-	for i, champ := range currentChamps {
-		buttons[i] = tele.InlineButton{
-			Text:   champ.Name,
-			Unique: fmt.Sprintf("%s%d", uqChampSchedulePrefix, champ.ID),
-		}
-	}
-
-	replyMarkup := &tele.ReplyMarkup{InlineKeyboard: buttonsToGrid(buttons, 1)}
-	return c.Send("Please select a championship:", replyMarkup)
+	return b.showSeasonSelectionMenu(c, uqSeasonSchedulePrefix, "Please select a season for schedule:")
 }
 
 func (b *Bot) showEventResults(c tele.Context) error {
-	events, err := b.app.GetCompletedEvents()
+	return b.showSeasonSelectionMenu(c, uqSeasonEventsPrefix, "Please select a season for event results:")
+}
+
+func (b *Bot) showSeasonSelectionMenu(c tele.Context, prefix, title string) error {
+	seasons, err := b.app.GetAvailableSeasons()
 	if err != nil {
-		b.log.Error("Failed to fetch events", "error", err)
-		return c.Send("An error occurred while fetching events. Please try again later.")
+		b.log.Error("Failed to fetch seasons", "error", err)
+		return c.Send("An error occurred while fetching seasons. Please try again later.")
 	}
 
-	const maxVisibleEvents = 5
-	var inlineButtons [][]tele.InlineButton
-
-	for i, event := range events {
-		if i >= maxVisibleEvents {
-			break
-		}
-		eventButton := tele.InlineButton{
-			Unique: fmt.Sprintf("%s%d", uqEventPrefix, event.ID),
-			Text:   fmt.Sprintf("%s %s (%s)", formatter.EmojiBowl, event.Name, event.Date.Format("02 Jan 2006")),
-		}
-		inlineButtons = append(inlineButtons, []tele.InlineButton{eventButton})
+	if len(seasons) == 0 {
+		return c.Send("No seasons found.")
 	}
 
-	if len(events) > maxVisibleEvents {
-		showAllButton := tele.InlineButton{
-			Unique: uqShowAllEvents,
-			Text:   "Show All Events",
+	buttons := make([]tele.InlineButton, len(seasons))
+	for i, season := range seasons {
+		buttons[i] = tele.InlineButton{
+			Text:   strconv.Itoa(season),
+			Unique: fmt.Sprintf("%s%d", prefix, season),
 		}
-		inlineButtons = append(inlineButtons, []tele.InlineButton{showAllButton})
 	}
 
-	b.log.Info("Showing event results", "events", events, "buttons", inlineButtons)
-
-	inlineMarkup := &tele.ReplyMarkup{InlineKeyboard: inlineButtons}
-	return c.Send(fmt.Sprintf("%s Select an event to see the results:", formatter.EmojiScroll), inlineMarkup)
+	replyMarkup := &tele.ReplyMarkup{InlineKeyboard: buttonsToGrid(buttons, 2)}
+	return c.Send(title, replyMarkup)
 }
 
 func (b *Bot) showPointsDistributionMenu(c tele.Context) error {
@@ -183,14 +145,19 @@ func (b *Bot) setDefaultChampionship(c tele.Context) error {
 }
 
 func (b *Bot) sendEventMaps(c tele.Context, event models.Event) error {
+	if !strings.Contains(strings.ToLower(event.ChampionshipName), "supercross") {
+		return nil
+	}
+
 	// Build file name pattern, e.g. "Rd05*.png"
 	rn, err := strconv.Atoi(event.RoundNumber)
 	if err != nil {
 		return errors.Wrap(err, "can't convert round number")
 	}
 
+	seasonYear := event.Date.Year()
 	pattern := fmt.Sprintf("Rd%02d*.png", rn)
-	matches, err := filepath.Glob(fmt.Sprintf("./maps/SX/%d/%s", event.Date.Year(), pattern))
+	matches, err := filepath.Glob(filepath.Join(".", "maps", "SX", strconv.Itoa(seasonYear), pattern))
 	if err != nil {
 		b.log.Error("Error searching files", "pattern", pattern, "error", err)
 		return errors.Wrap(err, "searching files")

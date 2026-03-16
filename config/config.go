@@ -17,13 +17,6 @@ type Config struct {
 	Metrics *Metrics `json:"metrics"`
 	Http    *Http    `json:"http"`
 	DB      *DB      `json:"database"`
-	Yandex  *Yandex  `json:"yandex"`
-}
-
-type Yandex struct {
-	BaseURL  string `json:"base_url,required"`
-	FolderID string `json:"folder_id,required"`
-	ApiKey   string `json:"api_key,required"`
 }
 
 type App struct {

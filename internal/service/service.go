@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -39,7 +40,11 @@ func NewApp(repo *storage.Repository, log *slog.Logger) *BotBackend {
 
 // GetAllChampionships fetches all championships available
 func (b *BotBackend) GetAllChampionships() ([]models.Championship, error) {
-	championships, err := b.repo.GetAllChampionships()
+	return b.GetAllChampionshipsBySeason(time.Now().Year())
+}
+
+func (b *BotBackend) GetAllChampionshipsBySeason(season int) ([]models.Championship, error) {
+	championships, err := b.repo.GetAllChampionshipsBySeason(season)
 	if err != nil {
 		return nil, errors.Wrap(err, "bot: could not get all championships")
 	}
@@ -58,11 +63,24 @@ func (b *BotBackend) GetChampionshipClasses(champID int) ([]models.RaceClass, er
 
 // GetChampionshipsWithRaces fetches championships available
 func (b *BotBackend) GetChampionshipsWithRaces() ([]models.Championship, error) {
-	championships, err := b.repo.GetChampionshipsWithRaces()
+	return b.GetChampionshipsWithRacesBySeason(time.Now().Year())
+}
+
+func (b *BotBackend) GetChampionshipsWithRacesBySeason(season int) ([]models.Championship, error) {
+	championships, err := b.repo.GetChampionshipsWithRacesBySeason(season)
 	if err != nil {
 		return nil, errors.Wrap(err, "bot: could not get championships with races")
 	}
 	return championships, nil
+}
+
+func (b *BotBackend) GetAvailableSeasons() ([]int, error) {
+	seasons, err := b.repo.GetAvailableSeasons()
+	if err != nil {
+		return nil, errors.Wrap(err, "bot: could not get available seasons")
+	}
+
+	return seasons, nil
 }
 
 func (b *BotBackend) GetCurrentStandings(champID int, class, region string) ([]models.Standing, error) {
@@ -192,9 +210,9 @@ func (b *BotBackend) GetUpcomingEvents() ([]models.Event, error) {
 }
 
 func (b *BotBackend) GetChampEvents(champID int) ([]models.Event, error) {
-	events, err := b.repo.GetChampEventsFromNow(champID)
+	events, err := b.repo.GetChampEvents(champID)
 	if err != nil {
-		return nil, errors.Wrap(err, "bot: could not fetch upcoming events")
+		return nil, errors.Wrap(err, "bot: could not fetch champ events")
 	}
 
 	if len(events) == 0 {
@@ -205,7 +223,11 @@ func (b *BotBackend) GetChampEvents(champID int) ([]models.Event, error) {
 }
 
 func (b *BotBackend) GetCompletedEvents() ([]models.Event, error) {
-	events, err := b.repo.GetCompletedEvents()
+	return b.GetCompletedEventsBySeason(time.Now().Year())
+}
+
+func (b *BotBackend) GetCompletedEventsBySeason(season int) ([]models.Event, error) {
+	events, err := b.repo.GetCompletedEventsBySeason(season)
 	if err != nil {
 		return nil, errors.Wrap(err, "bot: could not fetch completed events")
 	}
@@ -229,7 +251,7 @@ func (b *BotBackend) GetEventRaces(eventID int) ([]models.EventRace, error) {
 
 	//format, err := b.repo.GetEventByID(eventID)
 	//if err != nil {
-	//	return nil, errors.Wrap(err, "bot: could not fetch format by ID")
+	//	return nil, errors.Wrap(err, "bot: could not fetch format by PK")
 	//}
 
 	format := races[0].EventFormat
@@ -330,7 +352,7 @@ func (b *BotBackend) GetTripleCrownStandings(eventID int, class string) ([]model
 
 	event, err := b.repo.GetEventByID(eventID)
 	if err != nil {
-		return nil, models.Event{}, errors.Wrap(err, "GetTripleCrownStandings: can't get event by ID")
+		return nil, models.Event{}, errors.Wrap(err, "GetTripleCrownStandings: can't get event by PK")
 	}
 
 	return standings, event, nil

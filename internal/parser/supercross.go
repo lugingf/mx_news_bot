@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -99,47 +100,45 @@ func (p *AMASupercross) getRoundNumber(fileName string, event models.EventToChec
 		return event.RoundNumber
 	}
 
-	if strings.Contains(fileName, "Anaheim 1") {
-		return "1"
+	fileBase := filepath.Base(fileName)
+	patterns := []*regexp.Regexp{
+		regexp.MustCompile(`(?i)\brd[\s_-]*0*([0-9]{1,2})\b`),
+		regexp.MustCompile(`(?i)\bround[\s_-]*#?\s*0*([0-9]{1,2})\b`),
+		regexp.MustCompile(`(?i)#\s*0*([0-9]{1,2})\b`),
 	}
-	if strings.Contains(fileName, "San Diego") {
-		return "2"
+	for _, pattern := range patterns {
+		match := pattern.FindStringSubmatch(fileBase)
+		if len(match) > 1 {
+			round := strings.TrimLeft(match[1], "0")
+			if round == "" {
+				return "0"
+			}
+			return round
+		}
 	}
-	if strings.Contains(fileName, "Anaheim 2") {
-		return "3"
-	}
-	if strings.Contains(fileName, "Glendale") {
-		return "4"
-	}
-	if strings.Contains(fileName, "Tampa") {
-		return "5"
-	}
-	if strings.Contains(fileName, "Detroit") {
-		return "6"
-	}
-	if strings.Contains(fileName, "Indianapolis") {
-		return "9"
-	}
+
 	return "0"
 }
 
 func (p *AMASupercross) getRaceType(fileName string) string {
+	fileBase := strings.ToLower(filepath.Base(fileName))
+
 	switch {
-	case strings.Contains(fileName, "Main_Event"):
+	case strings.Contains(fileBase, "main"):
 		return raceTypeMain
-	case strings.Contains(fileName, "Heat_1"):
-		return raceTypeHeat1
-	case strings.Contains(fileName, "Heat_2"):
-		return raceTypeHeat2
-	case strings.Contains(fileName, "West_Heat"):
+	case strings.Contains(fileBase, "west") && strings.Contains(fileBase, "heat"):
 		return raceTypeWestHeat
-	case strings.Contains(fileName, "East_Heat"):
+	case strings.Contains(fileBase, "east") && strings.Contains(fileBase, "heat"):
 		return raceTypeEastHeat
-	case strings.Contains(fileName, "Race#1"):
+	case regexp.MustCompile(`(?i)heat[\s_#-]*1\b`).MatchString(fileBase):
+		return raceTypeHeat1
+	case regexp.MustCompile(`(?i)heat[\s_#-]*2\b`).MatchString(fileBase):
+		return raceTypeHeat2
+	case regexp.MustCompile(`(?i)race[\s_#-]*1\b`).MatchString(fileBase):
 		return raceTypeRace1
-	case strings.Contains(fileName, "Race#2"):
+	case regexp.MustCompile(`(?i)race[\s_#-]*2\b`).MatchString(fileBase):
 		return raceTypeRace2
-	case strings.Contains(fileName, "Race#3"):
+	case regexp.MustCompile(`(?i)race[\s_#-]*3\b`).MatchString(fileBase):
 		return raceTypeRace3
 	}
 
@@ -288,7 +287,18 @@ func (p *AMASupercross) parseDate(line string, result *models.RaceResult) error 
 }
 
 func (p *AMASupercross) parseClass(line string, result *models.RaceResult) error {
-	result.Class = strings.Split(line, " ")[0] + "SX"
+	classLine := strings.ToUpper(line)
+	switch {
+	case strings.Contains(classLine, "450"):
+		result.Class = "450SX"
+	case strings.Contains(classLine, "250"):
+		result.Class = "250SX"
+	default:
+		fields := strings.Fields(classLine)
+		if len(fields) > 0 {
+			result.Class = fields[0]
+		}
+	}
 	return nil
 }
 
@@ -384,7 +394,7 @@ func (p *AMASupercross) splitByColumns(line string) map[string]string {
 func (p *AMASupercross) outputJSON(result models.RaceResult) {
 	jsonData, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
-		slog.Error("marshaling error: %v", err)
+		slog.Error("marshaling error", "error", err)
 		return
 	}
 

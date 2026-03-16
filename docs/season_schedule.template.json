@@ -1,0 +1,27 @@
+{
+  "championships": [
+    {
+      "name": "Monster Energy AMA Supercross",
+      "season_year": 2026,
+      "classes": ["450SX", "250SX West", "250SX East", "250SX East/West Showdown"],
+      "events": [
+        {
+          "name": "Anaheim #1",
+          "classes": "450SX, 250SX West",
+          "venue_name": "Angel Stadium",
+          "round": 1,
+          "date": "2026-01-10",
+          "format": "Standard",
+          "event_code": "S2605",
+          "venue_info_url": "https://www.supercrosslive.com/tickets/anaheim-ca/jan-10-2026/",
+          "surface_override": "",
+          "track": {
+            "name": "Angel Stadium",
+            "city": "Anaheim",
+            "state": "CA"
+          }
+        }
+      ]
+    }
+  ]
+}

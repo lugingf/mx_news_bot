@@ -1,6 +1,7 @@
 package downloader
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -8,6 +9,9 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -30,47 +34,47 @@ func NewDownloader(baseURL, dataDir string, log *slog.Logger) *AMASupercross {
 	return &AMASupercross{BaseURL: baseURL, DataDir: dataDir, log: log}
 }
 
-func (d *AMASupercross) DownloadEventFiles(ctx context.Context, eventName string) (int, error) {
+func (d *AMASupercross) DownloadEventFiles(ctx context.Context, eventName string) ([]string, error) {
 	ctxt, cancel := context.WithTimeout(ctx, 300*time.Second)
 	defer cancel()
 
 	events, err := d.getEventLinks(ctxt)
-
-	// Find the event with the given name
-	var eventURL string
-	for _, event := range events {
-		if event.Name == eventName {
-			eventURL = event.Link
-			break
-		}
-	}
-
-	if eventURL == "" {
-		return 0, fmt.Errorf("no event link found for '%s'", eventName)
-	}
-
-	fmt.Printf("Visiting event URL: %s\n", eventURL)
-
-	// Step 2: Visit the event page and separate links for every class and race
-	races, err := d.getRaces(ctx, eventURL)
 	if err != nil {
-		return 0, errors.Wrap(err, "failed to get main events")
+		return nil, errors.Wrap(err, "failed to get event links")
 	}
 
-	// Step 3: Download files
-	count := 0
+	eventURL, resolvedEventName, err := d.findEventURL(events, eventName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Step 2: Visit the event page and group links by class/race.
+	races, err := d.getRaces(ctxt, eventURL)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get race links")
+	}
+
+	changedFiles := make(map[string]struct{})
 	for name, links := range races.links {
 		for _, link := range links {
-			err := d.download(link, name, eventName)
+			filePath, changed, err := d.download(link, name, resolvedEventName)
 			if err != nil {
-				return 0, errors.Wrap(err, "can't download file")
+				return nil, errors.Wrap(err, "can't download file")
 			}
 
-			count++
+			if changed {
+				changedFiles[filePath] = struct{}{}
+			}
 		}
 	}
 
-	return count, nil
+	result := make([]string, 0, len(changedFiles))
+	for filePath := range changedFiles {
+		result = append(result, filePath)
+	}
+	sort.Strings(result)
+
+	return result, nil
 }
 
 func (d *AMASupercross) getEventLinks(ctx context.Context) ([]Event, error) {
@@ -107,129 +111,283 @@ type raceSet struct {
 	links map[string][]string
 }
 
+type anchorLink struct {
+	Text string `json:"text"`
+	Href string `json:"href"`
+}
+
+var (
+	rgxNonAlphaNum = regexp.MustCompile(`[^a-z0-9]+`)
+	rgxSpaces      = regexp.MustCompile(`\s+`)
+	rgxHeat1       = regexp.MustCompile(`(?i)heat[\s_-]*#?\s*1\b`)
+	rgxHeat2       = regexp.MustCompile(`(?i)heat[\s_-]*#?\s*2\b`)
+	rgxRace1       = regexp.MustCompile(`(?i)race[\s_-]*#?\s*1\b`)
+	rgxRace2       = regexp.MustCompile(`(?i)race[\s_-]*#?\s*2\b`)
+	rgxRace3       = regexp.MustCompile(`(?i)race[\s_-]*#?\s*3\b`)
+)
+
+func (d *AMASupercross) findEventURL(events []Event, eventName string) (string, string, error) {
+	target := normalizeEventName(eventName)
+
+	for _, event := range events {
+		if normalizeEventName(event.Name) == target {
+			return event.Link, event.Name, nil
+		}
+	}
+
+	for _, event := range events {
+		normalized := normalizeEventName(event.Name)
+		if strings.Contains(normalized, target) || strings.Contains(target, normalized) {
+			return event.Link, event.Name, nil
+		}
+	}
+
+	return "", "", fmt.Errorf("no event link found for %q", eventName)
+}
+
 func (d *AMASupercross) getRaces(ctx context.Context, eventURL string) (raceSet, error) {
-	var links250, links250M, links250EWS, links250WH, links250W, links250EH, links250E, links250H1, links250H2 []string
-	var links250R1, links250R2, links250R3 []string
-	var links450, links450H1, links450H2 []string
-	var links450R1, links450R2, links450R3 []string
+	var anchorsJSON string
 
 	err := chromedp.Run(ctx,
 		chromedp.Navigate(eventURL),
 		chromedp.WaitVisible(`a`, chromedp.ByQuery), // Ensure the links are visible
-		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => a.innerText === '250 Main Event').map(a => a.href)`, &links250),
-		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => a.textContent.match(/250 Main(?: Event)?/)).map(a => a.href)`, &links250M),
-		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => a.textContent.match(/250 East\/West Showdown Main(?: Event)?/)).map(a => a.href)`, &links250EWS),
-		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /250 Heat (\#?1)/.test(a.textContent)).map(a => a.href)`, &links250H1),
-		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /250 West Heat/.test(a.textContent)).map(a => a.href)`, &links250WH),
-		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /250 West/.test(a.textContent)).map(a => a.href)`, &links250WH),
-		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /250 East Heat/.test(a.textContent)).map(a => a.href)`, &links250EH),
-		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /250 East/.test(a.textContent)).map(a => a.href)`, &links250EH),
-		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /250 Heat (\#?2)/.test(a.textContent)).map(a => a.href)`, &links250H2),
-		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /250 Race (\#?1)/.test(a.textContent)).map(a => a.href)`, &links250R1),
-		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /250 Race (\#?2)/.test(a.textContent)).map(a => a.href)`, &links250R2),
-		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /250 Race (\#?3)/.test(a.textContent)).map(a => a.href)`, &links250R3),
-
-		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => a.textContent.match(/450 Main(?: Event)?/)).map(a => a.href)`, &links450),
-		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /450 Heat (\#?1)/.test(a.textContent)).map(a => a.href)`, &links450H1),
-		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /450 Heat (\#?2)/.test(a.textContent)).map(a => a.href)`, &links450H2),
-		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /450 Race (\#?1)/.test(a.textContent)).map(a => a.href)`, &links450R1),
-		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /450 Race (\#?2)/.test(a.textContent)).map(a => a.href)`, &links450R2),
-		chromedp.Evaluate(`Array.from(document.querySelectorAll('a')).filter(a => /450 Race (\#?3)/.test(a.textContent)).map(a => a.href)`, &links450R3),
+		chromedp.Evaluate(`JSON.stringify(Array.from(document.querySelectorAll('a')).map(a => ({
+			text: (a.textContent || '').trim(),
+			href: a.href
+		})))`, &anchorsJSON),
 	)
 	if err != nil {
 		return raceSet{}, fmt.Errorf("failed to extract download links: %w", err)
 	}
 
-	result := raceSet{
-		links: map[string][]string{
-			"250 Main_Event": append(append(links250, links250M...), links250EWS...),
-			"250 Heat_1":     links250H1,
-			"250 Heat_2":     links250H2,
-			"250 West_Heat":  links250WH,
-			"250 West":       links250W,
-			"250 East_Heat":  links250EH,
-			"250 East":       links250E,
-			"250 Race#1":     links250R1,
-			"250 Race#2":     links250R2,
-			"250 Race#3":     links250R3,
+	var anchors []anchorLink
+	if err := json.Unmarshal([]byte(anchorsJSON), &anchors); err != nil {
+		return raceSet{}, fmt.Errorf("failed to parse race links JSON: %w", err)
+	}
 
-			"450 Main_Event": links450,
-			"450 Heat_1":     links450H1,
-			"450 Heat_2":     links450H2,
-			"450 Race#1":     links450R1,
-			"450 Race#2":     links450R2,
-			"450 Race#3":     links450R3,
-		},
+	dedup := make(map[string]map[string]struct{})
+	for _, anchor := range anchors {
+		if anchor.Href == "" || !strings.Contains(anchor.Href, "p=view_race_result") {
+			continue
+		}
+
+		raceName, ok := classifyRaceLabel(anchor.Text)
+		if !ok {
+			continue
+		}
+
+		if _, exists := dedup[raceName]; !exists {
+			dedup[raceName] = make(map[string]struct{})
+		}
+		dedup[raceName][anchor.Href] = struct{}{}
+	}
+
+	result := raceSet{
+		links: make(map[string][]string),
+	}
+
+	for raceName, linksSet := range dedup {
+		links := make([]string, 0, len(linksSet))
+		for link := range linksSet {
+			links = append(links, link)
+		}
+		sort.Strings(links)
+		result.links[raceName] = links
 	}
 
 	return result, nil
 }
 
-func (d *AMASupercross) download(link, race, eventName string) error {
-	// main event link contains "p=view_race_result"
-	if !strings.Contains(link, "p=view_race_result") {
-		fmt.Printf("Skipping link: %s (missing 'p=view_race_result')\n", link)
-		return nil
-	}
-
+func (d *AMASupercross) download(link, race, eventName string) (string, bool, error) {
 	title, err := d.getTitle(race)
 	if err != nil {
-		return fmt.Errorf("failed to get title: %w", err)
+		return "", false, fmt.Errorf("failed to get title: %w", err)
 	}
 
 	fileName := fmt.Sprintf("%s_%s.pdf", eventName, title)
 
 	pdfURL := fmt.Sprintf("%s&export=pdf", link)
-	fmt.Printf("Downloading PDF from: %s\n", pdfURL)
-
-	if err := d.downloadFile(pdfURL, eventName, fileName); err != nil {
-		return fmt.Errorf("failed to download file from %s: %w", pdfURL, err)
+	filePath, changed, err := d.downloadFile(pdfURL, eventName, fileName)
+	if err != nil {
+		return "", false, fmt.Errorf("failed to download file from %s: %w", pdfURL, err)
 	}
 
-	fmt.Printf("Successfully downloaded: %s\n", fileName)
-
-	return nil
+	return filePath, changed, nil
 }
 
-func (d *AMASupercross) downloadFile(url, eventDir, fileName string) error {
+func (d *AMASupercross) downloadFile(url, eventDir, fileName string) (string, bool, error) {
+	filePath := filepath.Join(d.DataDir, eventDir, fileName)
+
 	// Ensure the directory exists
-	err := os.MkdirAll(fmt.Sprintf("%s/%s", d.DataDir, eventDir), os.ModePerm)
+	err := os.MkdirAll(filepath.Dir(filePath), os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
+		return "", false, fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	// Perform HTTP GET request
 	resp, err := http.Get(url)
 	if err != nil {
-		return fmt.Errorf("failed to make GET request: %w", err)
+		return "", false, fmt.Errorf("failed to make GET request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("non-OK HTTP status: %s", resp.Status)
+		return "", false, fmt.Errorf("non-OK HTTP status: %s", resp.Status)
 	}
 
-	// Create the file
-	out, err := os.Create(fmt.Sprintf("%s/%s/%s", d.DataDir, eventDir, fileName))
+	content, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("failed to create file: %w", err)
+		return "", false, fmt.Errorf("failed to read response body: %w", err)
 	}
-	defer out.Close()
 
-	// Write the response body to the file
-	_, err = io.Copy(out, resp.Body)
+	current, err := os.ReadFile(filePath)
+	if err == nil && bytes.Equal(current, content) {
+		return filePath, false, nil
+	}
+	if err != nil && !os.IsNotExist(err) {
+		return "", false, fmt.Errorf("failed to read existing file: %w", err)
+	}
+
+	err = os.WriteFile(filePath, content, 0o644)
 	if err != nil {
-		return fmt.Errorf("failed to write to file: %w", err)
+		return "", false, fmt.Errorf("failed to write file: %w", err)
 	}
 
-	return nil
+	return filePath, true, nil
 }
 
 func (d *AMASupercross) getTitle(event string) (string, error) {
-	parts := strings.Split(event, " ")
-	if len(parts) < 2 {
+	event = strings.TrimSpace(event)
+	if event == "" {
 		return "", errors.New("wrong race name")
 	}
 
-	return fmt.Sprintf("%s_%s", parts[0], parts[1]), nil
+	return strings.ReplaceAll(event, " ", "_"), nil
+}
+
+func (d *AMASupercross) ArchiveOldPDFs(maxAge time.Duration) (int, error) {
+	if maxAge <= 0 {
+		return 0, nil
+	}
+
+	cutoff := time.Now().Add(-maxAge)
+	archiveRoot := filepath.Join(d.DataDir, "archive", time.Now().Format("2006-01"))
+	archived := 0
+
+	err := filepath.Walk(d.DataDir, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+
+		if info.IsDir() {
+			if path == filepath.Join(d.DataDir, "archive") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		if !strings.EqualFold(filepath.Ext(info.Name()), ".pdf") {
+			return nil
+		}
+		if !info.ModTime().Before(cutoff) {
+			return nil
+		}
+
+		rel, err := filepath.Rel(d.DataDir, path)
+		if err != nil {
+			return err
+		}
+		dst := filepath.Join(archiveRoot, rel)
+		if err := moveFile(path, dst); err != nil {
+			return err
+		}
+
+		archived++
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	return archived, nil
+}
+
+func classifyRaceLabel(label string) (string, bool) {
+	normalized := normalizeEventName(label)
+	if normalized == "" {
+		return "", false
+	}
+
+	class := ""
+	switch {
+	case strings.Contains(normalized, "450"):
+		class = "450"
+	case strings.Contains(normalized, "250"):
+		class = "250"
+	default:
+		return "", false
+	}
+
+	raceType := ""
+	switch {
+	case strings.Contains(normalized, "main") || strings.Contains(normalized, "final"):
+		raceType = "Main_Event"
+	case strings.Contains(normalized, "west") && strings.Contains(normalized, "heat"):
+		raceType = "West_Heat"
+	case strings.Contains(normalized, "east") && strings.Contains(normalized, "heat"):
+		raceType = "East_Heat"
+	case rgxHeat1.MatchString(normalized):
+		raceType = "Heat_1"
+	case rgxHeat2.MatchString(normalized):
+		raceType = "Heat_2"
+	case rgxRace1.MatchString(normalized):
+		raceType = "Race#1"
+	case rgxRace2.MatchString(normalized):
+		raceType = "Race#2"
+	case rgxRace3.MatchString(normalized):
+		raceType = "Race#3"
+	default:
+		return "", false
+	}
+
+	return fmt.Sprintf("%s %s", class, raceType), true
+}
+
+func normalizeEventName(value string) string {
+	value = strings.ToLower(value)
+	value = rgxNonAlphaNum.ReplaceAllString(value, " ")
+	value = rgxSpaces.ReplaceAllString(value, " ")
+	return strings.TrimSpace(value)
+}
+
+func moveFile(src, dst string) error {
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return err
+	}
+
+	if err := os.Rename(src, dst); err == nil {
+		return nil
+	}
+
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		return err
+	}
+
+	if err := out.Close(); err != nil {
+		return err
+	}
+
+	return os.Remove(src)
 }

@@ -1,0 +1,158 @@
+name: deploy-blue-green
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Docker image tag (default: commit SHA)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.23.x'
+          cache: true
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.5.0
+          args: --timeout=5m ./...
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build binary
+        run: go build -o mx_news_bot ./cmd/mx
+
+  build-and-push-image:
+    if: github.ref == 'refs/heads/main'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute image name
+        id: image
+        run: |
+          OWNER="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          TAG="${{ inputs.image_tag }}"
+          if [ -z "${TAG}" ]; then
+            TAG="${GITHUB_SHA}"
+          fi
+          echo "image=ghcr.io/${OWNER}/mx-news-bot:${TAG}" >> "${GITHUB_OUTPUT}"
+
+      - name: Build and push container
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.image.outputs.image }}
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: build-and-push-image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    env:
+      AWS_SSH_HOST: ${{ secrets.AWS_SSH_HOST }}
+      AWS_SSH_USER: ${{ secrets.AWS_SSH_USER }}
+      AWS_SSH_PORT: ${{ secrets.AWS_SSH_PORT }}
+      DEPLOY_CONFIG_JSON: ${{ secrets.DEPLOY_CONFIG_JSON }}
+      GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+      GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+      APP_NAME: ${{ vars.APP_NAME }}
+      APP_DIR: ${{ vars.APP_DIR }}
+      PUBLIC_PORT: ${{ vars.PUBLIC_PORT || '18085' }}
+      PUBLIC_BIND_ADDR: ${{ vars.PUBLIC_BIND_ADDR || '127.0.0.1' }}
+      NETWORK: ${{ vars.DEPLOY_NETWORK }}
+      WEBHOOK_PATH: ${{ vars.WEBHOOK_PATH }}
+      METRICS_PATH: ${{ vars.METRICS_PATH || '/metrics' }}
+      ENABLE_HOST_GATEWAY: ${{ vars.ENABLE_HOST_GATEWAY || 'true' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.AWS_SSH_PRIVATE_KEY }}
+
+      - name: Validate deploy settings
+        run: |
+          : "${AWS_SSH_HOST:?AWS_SSH_HOST secret is required}"
+          : "${AWS_SSH_USER:?AWS_SSH_USER secret is required}"
+          : "${DEPLOY_CONFIG_JSON:?DEPLOY_CONFIG_JSON secret is required}"
+          : "${WEBHOOK_PATH:?WEBHOOK_PATH variable is required}"
+
+      - name: Add remote host key
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          PORT="${AWS_SSH_PORT:-22}"
+          ssh-keyscan -p "${PORT}" "${AWS_SSH_HOST}" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Upload deploy script
+        run: |
+          PORT="${AWS_SSH_PORT:-22}"
+          REMOTE_DIR="${APP_DIR:-/opt/mx-news-bot}"
+          ssh -p "${PORT}" "${AWS_SSH_USER}@${AWS_SSH_HOST}" "mkdir -p '${REMOTE_DIR}'"
+          scp -P "${PORT}" ./deploy/blue-green-deploy.sh "${AWS_SSH_USER}@${AWS_SSH_HOST}:${REMOTE_DIR}/blue-green-deploy.sh"
+
+      - name: Upload runtime config
+        run: |
+          PORT="${AWS_SSH_PORT:-22}"
+          REMOTE_DIR="${APP_DIR:-/opt/mx-news-bot}"
+          TMP_CONFIG="$(mktemp)"
+          printf '%s' "${DEPLOY_CONFIG_JSON}" > "${TMP_CONFIG}"
+          scp -P "${PORT}" "${TMP_CONFIG}" "${AWS_SSH_USER}@${AWS_SSH_HOST}:${REMOTE_DIR}/config.json"
+          ssh -p "${PORT}" "${AWS_SSH_USER}@${AWS_SSH_HOST}" "chmod 644 '${REMOTE_DIR}/config.json'"
+          rm -f "${TMP_CONFIG}"
+
+      - name: Blue-green deploy
+        run: |
+          PORT="${AWS_SSH_PORT:-22}"
+          REMOTE_DIR="${APP_DIR:-/opt/mx-news-bot}"
+          IMAGE="${{ needs.build-and-push-image.outputs.image }}"
+          GHCR_USER="${GHCR_USERNAME:-${GITHUB_ACTOR}}"
+          ssh -p "${PORT}" "${AWS_SSH_USER}@${AWS_SSH_HOST}" "chmod +x '${REMOTE_DIR}/blue-green-deploy.sh' && APP_NAME='${APP_NAME}' APP_DIR='${REMOTE_DIR}' PUBLIC_PORT='${PUBLIC_PORT}' PUBLIC_BIND_ADDR='${PUBLIC_BIND_ADDR}' NETWORK='${NETWORK}' WEBHOOK_PATH='${WEBHOOK_PATH}' METRICS_PATH='${METRICS_PATH}' ENABLE_HOST_GATEWAY='${ENABLE_HOST_GATEWAY}' IMAGE='${IMAGE}' GHCR_USERNAME='${GHCR_USER}' GHCR_TOKEN='${GHCR_TOKEN}' '${REMOTE_DIR}/blue-green-deploy.sh'"

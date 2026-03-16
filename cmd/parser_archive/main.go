@@ -75,7 +75,7 @@ func main() {
 	for _, pdfFile := range files {
 		err = pdfconverter.ConvertPDFToText(pdfFile, outputFile)
 		if err != nil {
-			logger.Error("Ошибка при конвертации PDF в текст: %v", err)
+			logger.Error("Ошибка при конвертации PDF в текст", "error", err)
 			return
 		}
 
@@ -85,7 +85,7 @@ func main() {
 				file.Close()
 			}
 
-			logger.Error("Ошибка при открытии файла текста: %v", err)
+			logger.Error("Ошибка при открытии файла текста", "error", err)
 			return
 		}
 

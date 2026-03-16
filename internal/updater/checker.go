@@ -3,6 +3,7 @@ package updater
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"github.com/chromedp/chromedp"
 	"github.com/pkg/errors"
@@ -19,6 +20,12 @@ type SXChecker struct {
 	prsr *parser.AMASupercross
 }
 
+const (
+	sxChampionshipName        = "Monster Energy AMA Supercross"
+	completedLookbackDays     = 30
+	pdfArchiveRetentionPeriod = 30 * 24 * time.Hour
+)
+
 func New(repo *storage.Repository, dwnl *dwn.AMASupercross, prsr *parser.AMASupercross, log *slog.Logger) *SXChecker {
 	return &SXChecker{
 		log:  log,
@@ -30,57 +37,59 @@ func New(repo *storage.Repository, dwnl *dwn.AMASupercross, prsr *parser.AMASupe
 
 // Check fetches and parses event pages for PDF links.
 func (c *SXChecker) Check() error {
-	event, err := c.repo.GetNextEvent()
+	archivedCount, err := c.dwnl.ArchiveOldPDFs(pdfArchiveRetentionPeriod)
 	if err != nil {
-		return errors.Wrap(err, "can't collect next event for download")
+		c.log.Error("can't archive old PDFs", "error", err)
+	} else if archivedCount > 0 {
+		c.log.Info("Archived old PDF files", "count", archivedCount)
 	}
 
-	if event.ChampionshipID == "" {
-		c.log.Info("No next event to check")
+	events, err := c.repo.GetEventsToCheck(sxChampionshipName, completedLookbackDays)
+	if err != nil {
+		return errors.Wrap(err, "can't collect events for download")
+	}
+
+	if len(events) == 0 {
+		c.log.Info("No events to check")
 		return nil
 	}
 
-	// Create a Chromedp allocator with default options
-	allocatorCtx, cancelAllocator := chromedp.NewExecAllocator(context.Background(), chromedp.DefaultExecAllocatorOptions[:]...)
-	defer cancelAllocator()
+	for _, event := range events {
+		// Create a Chromedp allocator with default options
+		allocatorCtx, cancelAllocator := chromedp.NewExecAllocator(context.Background(), chromedp.DefaultExecAllocatorOptions[:]...)
 
-	// Create a Chromedp context
-	ctx, cancel := chromedp.NewContext(allocatorCtx)
-	defer cancel()
+		// Create a Chromedp context
+		ctx, cancel := chromedp.NewContext(allocatorCtx)
 
-	c.log.Info("Checking event", slog.String("event_name", event.Name))
+		c.log.Info("Checking event", slog.String("event_name", event.Name))
 
-	n, err := c.dwnl.DownloadEventFiles(ctx, event.Name)
-	if err != nil {
-		return errors.Wrapf(err, "can't check event %s", event.Name)
-	}
-
-	if n == 0 {
-		c.log.Info("No files downloaded", "event_name", event.Name)
-		return nil
-	}
-
-	c.log.Info("Files downloaded", "event_name", event.Name)
-
-	files, err := c.prsr.CollectFiles([]string{event.Name})
-	if err != nil {
-		return errors.Wrapf(err, "can't collect files for event %s", event.Name)
-	}
-
-	c.log.Info("Files collected for parsing", "event_name", event.Name, "count", len(files))
-	for _, file := range files {
-		c.log.Info("Parsing file", "event_name", event.Name, "file_name", file)
-		raceResult, err := c.prsr.ParseFile(file, event)
+		changedFiles, err := c.dwnl.DownloadEventFiles(ctx, event.Name)
+		cancel()
+		cancelAllocator()
 		if err != nil {
-			c.log.Error("can't parse file", "error", err.Error(), "file_name", file)
+			return errors.Wrapf(err, "can't check event %s", event.Name)
+		}
+
+		if len(changedFiles) == 0 {
+			c.log.Info("No changed files found for event", "event_name", event.Name)
 			continue
 		}
 
-		c.log.Info("Uploading result", "event_name", event.Name, "file_name", file)
-		err = c.prsr.UploadRaceResult(raceResult)
-		if err != nil {
-			c.log.Error("can't upload race result", "error", err.Error(), "file_name", file)
-			continue
+		c.log.Info("Changed files downloaded", "event_name", event.Name, "count", len(changedFiles))
+		for _, file := range changedFiles {
+			c.log.Info("Parsing file", "event_name", event.Name, "file_name", file)
+			raceResult, err := c.prsr.ParseFile(file, event)
+			if err != nil {
+				c.log.Error("can't parse file", "error", err.Error(), "file_name", file)
+				continue
+			}
+
+			c.log.Info("Uploading result", "event_name", event.Name, "file_name", file)
+			err = c.prsr.UploadRaceResult(raceResult)
+			if err != nil {
+				c.log.Error("can't upload race result", "error", err.Error(), "file_name", file)
+				continue
+			}
 		}
 	}
 
