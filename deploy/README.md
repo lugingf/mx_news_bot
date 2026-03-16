@@ -21,7 +21,21 @@
 - `DEPLOY_NETWORK=mx_news_bot_net` (or custom)
 - `WEBHOOK_PATH=/webhook-mx`
 - `METRICS_PATH=/metrics-mx` (recommended)
-- `ENABLE_HOST_GATEWAY=true` (recommended if DB is on host)
+- `ENABLE_HOST_GATEWAY=true` (only if DB is on host)
+
+## Separate DB compose (recommended for your setup)
+
+If DB runs as a separate compose in another directory:
+
+1. Create network once:
+   `docker network create mx_news_bot_net || true`
+2. Start DB from:
+   `deploy/db/docker-compose.db.yml`
+3. Use:
+   - `DEPLOY_NETWORK=mx_news_bot_net`
+   - `ENABLE_HOST_GATEWAY=false`
+4. In `DEPLOY_CONFIG_JSON` set:
+   `database.conn = "host=db-mx port=5432 user=mx dbname=mx sslmode=disable password=mxpassword"`
 
 ## Nginx (shared host with `astro_mind_bot`)
 
