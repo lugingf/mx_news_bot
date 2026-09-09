@@ -41,8 +41,40 @@ jobs:
           version: v2.5.0
           args: --timeout=5m ./...
 
-      - name: Test
-        run: go test ./...
+      - name: Unit tests
+        run: go test ./... --skip=Integration
+
+      - name: Start Postgres
+        run: |
+          docker run -d --name mx-preflight-db \
+            -e POSTGRES_DB=mx -e POSTGRES_USER=mx -e POSTGRES_PASSWORD=mxpassword \
+            -p 6444:5432 postgres:17-alpine
+          for _ in $(seq 1 30); do
+            if docker exec mx-preflight-db pg_isready -U mx >/dev/null 2>&1; then exit 0; fi
+            sleep 2
+          done
+          echo "postgres did not become ready" >&2
+          exit 1
+
+      # Applying the migrations here is also what proves they land cleanly on an empty database
+      # before the deploy runs them against the real one.
+      - name: Apply migrations
+        run: |
+          cat > /tmp/preflight-config.json <<'JSON'
+          {"database":{"conn":"host=localhost port=6444 user=mx dbname=mx password=mxpassword sslmode=disable"}}
+          JSON
+          go run ./cmd/mx -config /tmp/preflight-config.json -migrate-up -migrations infra/migrations
+
+      # These are the tests that catch SQL which does not match the schema; without a database
+      # they skip, and the whole storage layer goes unchecked.
+      - name: Integration tests
+        env:
+          MX_TEST_DSN: host=localhost port=6444 user=mx dbname=mx password=mxpassword sslmode=disable
+        run: go test ./... -run Integration -count=1
+
+      - name: Stop Postgres
+        if: always()
+        run: docker rm -f mx-preflight-db || true
 
       - name: Build binary
         run: go build -o mx_news_bot ./cmd/mx
