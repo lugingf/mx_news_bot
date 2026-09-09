@@ -142,6 +142,8 @@ jobs:
       METRICS_PATH: ${{ vars.METRICS_PATH || '/metrics-mx' }}
       ENABLE_HOST_GATEWAY: ${{ vars.ENABLE_HOST_GATEWAY || 'true' }}
 
+      SSH_OPTS: -o BatchMode=yes -o IdentitiesOnly=yes -o PreferredAuthentications=publickey
+
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -150,6 +152,11 @@ jobs:
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.AWS_SSH_PRIVATE_KEY }}
+
+      # Prints fingerprints only, never key material. When a deploy fails with "Permission denied"
+      # this is what says whether the agent is even holding the key the server was given.
+      - name: Show loaded SSH key fingerprints
+        run: ssh-add -l
 
       - name: Validate deploy settings
         run: |
@@ -170,8 +177,8 @@ jobs:
         run: |
           PORT="${AWS_SSH_PORT:-22}"
           REMOTE_DIR="${APP_DIR:-/opt/mx_news_bot}"
-          ssh -p "${PORT}" "${AWS_SSH_USER}@${AWS_SSH_HOST}" "mkdir -p '${REMOTE_DIR}'"
-          scp -P "${PORT}" ./deploy/blue-green-deploy.sh "${AWS_SSH_USER}@${AWS_SSH_HOST}:${REMOTE_DIR}/blue-green-deploy.sh"
+          ssh ${SSH_OPTS} -p "${PORT}" "${AWS_SSH_USER}@${AWS_SSH_HOST}" "mkdir -p '${REMOTE_DIR}'"
+          scp ${SSH_OPTS} -P "${PORT}" ./deploy/blue-green-deploy.sh "${AWS_SSH_USER}@${AWS_SSH_HOST}:${REMOTE_DIR}/blue-green-deploy.sh"
 
       - name: Upload runtime config
         run: |
@@ -179,8 +186,8 @@ jobs:
           REMOTE_DIR="${APP_DIR:-/opt/mx_news_bot}"
           TMP_CONFIG="$(mktemp)"
           printf '%s' "${DEPLOY_CONFIG_JSON}" > "${TMP_CONFIG}"
-          scp -P "${PORT}" "${TMP_CONFIG}" "${AWS_SSH_USER}@${AWS_SSH_HOST}:${REMOTE_DIR}/config.json"
-          ssh -p "${PORT}" "${AWS_SSH_USER}@${AWS_SSH_HOST}" "chmod 644 '${REMOTE_DIR}/config.json'"
+          scp ${SSH_OPTS} -P "${PORT}" "${TMP_CONFIG}" "${AWS_SSH_USER}@${AWS_SSH_HOST}:${REMOTE_DIR}/config.json"
+          ssh ${SSH_OPTS} -p "${PORT}" "${AWS_SSH_USER}@${AWS_SSH_HOST}" "chmod 644 '${REMOTE_DIR}/config.json'"
           rm -f "${TMP_CONFIG}"
 
       - name: Blue-green deploy
@@ -189,4 +196,4 @@ jobs:
           REMOTE_DIR="${APP_DIR:-/opt/mx_news_bot}"
           IMAGE="${{ needs.build-and-push-image.outputs.image }}"
           GHCR_USER="${GHCR_USERNAME:-${GITHUB_ACTOR}}"
-          ssh -p "${PORT}" "${AWS_SSH_USER}@${AWS_SSH_HOST}" "chmod +x '${REMOTE_DIR}/blue-green-deploy.sh' && APP_NAME='${APP_NAME}' APP_DIR='${REMOTE_DIR}' PUBLIC_PORT='${PUBLIC_PORT}' PUBLIC_BIND_ADDR='${PUBLIC_BIND_ADDR}' NETWORK='${NETWORK}' BACKEND_NETWORK='${BACKEND_NETWORK}' WEBHOOK_PATH='${WEBHOOK_PATH}' METRICS_PATH='${METRICS_PATH}' ENABLE_HOST_GATEWAY='${ENABLE_HOST_GATEWAY}' IMAGE='${IMAGE}' GHCR_USERNAME='${GHCR_USER}' GHCR_TOKEN='${GHCR_TOKEN}' '${REMOTE_DIR}/blue-green-deploy.sh'"
+          ssh ${SSH_OPTS} -p "${PORT}" "${AWS_SSH_USER}@${AWS_SSH_HOST}" "chmod +x '${REMOTE_DIR}/blue-green-deploy.sh' && APP_NAME='${APP_NAME}' APP_DIR='${REMOTE_DIR}' PUBLIC_PORT='${PUBLIC_PORT}' PUBLIC_BIND_ADDR='${PUBLIC_BIND_ADDR}' NETWORK='${NETWORK}' BACKEND_NETWORK='${BACKEND_NETWORK}' WEBHOOK_PATH='${WEBHOOK_PATH}' METRICS_PATH='${METRICS_PATH}' ENABLE_HOST_GATEWAY='${ENABLE_HOST_GATEWAY}' IMAGE='${IMAGE}' GHCR_USERNAME='${GHCR_USER}' GHCR_TOKEN='${GHCR_TOKEN}' '${REMOTE_DIR}/blue-green-deploy.sh'"

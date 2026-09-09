@@ -3,7 +3,15 @@ FROM golang:1.23.1-alpine AS builder
 WORKDIR /src
 
 COPY go.mod go.sum ./
-RUN go mod download
+# proxy.golang.org drops connections often enough that a single attempt makes the whole deploy
+# flaky: the failure is a transport error mid-stream, not a missing module, and the next attempt
+# usually succeeds.
+RUN for attempt in 1 2 3; do \
+        go mod download && break; \
+        echo "go mod download failed (attempt ${attempt}), retrying"; \
+        sleep $((attempt * 5)); \
+    done; \
+    go mod download
 
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/mx_news_bot ./cmd/mx

@@ -49,15 +49,33 @@ if [[ ! -f "${CONFIG_PATH}" ]]; then
 fi
 chmod 644 "${CONFIG_PATH}" || true
 
-if [[ "${WEBHOOK_PATH:0:1}" != "/" ]]; then
-  WEBHOOK_PATH="/${WEBHOOK_PATH}"
-fi
+# These become nginx `location =` values, so they have to be request paths and nothing else.
+# Prefixing a slash onto whatever arrived was wrong: given a full URL it produced
+# `location = /https://host/path`, which nginx accepts happily and which no request ever matches,
+# so Telegram got a 404 that looked like a routing bug rather than a bad variable.
+require_request_path() {
+  local name="$1" value="$2"
+
+  if [[ -z "${value}" ]]; then
+    log "${name} is empty"
+    exit 1
+  fi
+  if [[ "${value}" == *"://"* || "${value}" == *" "* ]]; then
+    log "${name} must be a request path such as /mxbotwebhook, got: ${value}"
+    exit 1
+  fi
+  if [[ "${value:0:1}" != "/" ]]; then
+    log "${name} must start with a slash, got: ${value}"
+    exit 1
+  fi
+}
+
 if [[ -z "${METRICS_PATH}" ]]; then
   METRICS_PATH="/metrics-mx"
 fi
-if [[ "${METRICS_PATH:0:1}" != "/" ]]; then
-  METRICS_PATH="/${METRICS_PATH}"
-fi
+
+require_request_path WEBHOOK_PATH "${WEBHOOK_PATH}"
+require_request_path METRICS_PATH "${METRICS_PATH}"
 
 if [[ -n "${GHCR_USERNAME}" && -n "${GHCR_TOKEN}" ]]; then
   log "login to ghcr.io"
