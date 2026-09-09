@@ -21,6 +21,9 @@ ENV CHROME_BIN=/usr/bin/chromium-browser
 WORKDIR /app
 
 COPY --from=builder /out/mx_news_bot /app/mx_news_bot
+# Migrations ship alongside the binary that applies them, so `-migrate-up` can never run a set
+# of migrations from a different build than the code that expects them.
+COPY --from=builder /src/infra/migrations /app/migrations
 
 EXPOSE 8085 9595
 

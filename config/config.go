@@ -13,51 +13,65 @@ import (
 var once sync.Once
 
 type Config struct {
-	App     *App     `json:"app"`
-	Metrics *Metrics `json:"metrics"`
-	Http    *Http    `json:"http"`
-	DB      *DB      `json:"database"`
+	App        *App        `json:"app"`
+	Metrics    *Metrics    `json:"metrics"`
+	DB         *DB         `json:"database"`
+	LapVision  *LapVision  `json:"lap_vision"`
+	Publishing *Publishing `json:"publishing"`
 }
 
 type App struct {
-	Bot          Bot                 `json:"bot"`
-	ChampConfigs ChampionshipConfigs `json:"champ_configs"`
-	ParserConfig ParserConfig        `json:"parser_config"`
+	Bot Bot `json:"bot"`
 }
 
 type Bot struct {
-	Port       int    `json:"port,required"`
-	BotToken   string `json:"token,required"`
-	HookUrl    string `json:"hook,required"`
+	Port       int    `json:"port"`
+	BotToken   string `json:"token"`
+	HookUrl    string `json:"hook"`
 	BotVerbose bool   `json:"verbose"`
-	Local      bool   `json:"local"`
 }
 
-type ChampionshipConfigs struct {
-	SXConfig    ChampionshipConfig `json:"sx"`
-	ProMXConfig ChampionshipConfig `json:"promx"`
+// LapVision is the results backend. The bot reads everything it shows through this API and
+// receives publication requests from it, so there is no local racing data any more.
+type LapVision struct {
+	BaseURL        string        `json:"base_url"`
+	InternalToken  string        `json:"internal_token"`
+	RequestTimeout time.Duration `json:"request_timeout"`
+	// WebhookSecret verifies the HMAC on incoming publication requests. Empty means the
+	// receiver rejects everything, which is the safe default for a missing configuration.
+	WebhookSecret string `json:"webhook_secret"`
 }
 
-type ChampionshipConfig struct {
-	BaseURL string `json:"base_url"`
-	DataDir string `json:"data_dir"`
+type Publishing struct {
+	Telegram  *TelegramChannel  `json:"telegram"`
+	Twitter   *TwitterChannel   `json:"twitter"`
+	Instagram *InstagramChannel `json:"instagram"`
 }
 
-type ParserConfig struct {
-	DryRun     bool   `json:"dry_run"`
-	DataDir    string `json:"data_dir"`
-	OutputFile string `json:"output_file"`
-	CronRule   string `json:"cron"`
+// TelegramChannel posts through the bot token already configured under app.bot; only the
+// destination is channel-specific.
+type TelegramChannel struct {
+	Enabled bool   `json:"enabled"`
+	ChatID  string `json:"chat_id"`
+}
+
+type TwitterChannel struct {
+	Enabled           bool   `json:"enabled"`
+	APIKey            string `json:"api_key"`
+	APISecret         string `json:"api_secret"`
+	AccessToken       string `json:"access_token"`
+	AccessTokenSecret string `json:"access_token_secret"`
+}
+
+type InstagramChannel struct {
+	Enabled     bool   `json:"enabled"`
+	AccessToken string `json:"access_token"`
+	AccountID   string `json:"account_id"`
 }
 
 type Metrics struct {
 	Port        string        `json:"port"`
 	ReadTimeout time.Duration `json:"read_timeout"`
-}
-
-type Http struct {
-	ReadTimeout time.Duration `json:"read_timeout"`
-	IsLocal     bool          `json:"local"`
 }
 
 func New(configPath string) *Config {

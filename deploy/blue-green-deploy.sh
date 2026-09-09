@@ -4,9 +4,15 @@ set -Eeuo pipefail
 APP_NAME="${APP_NAME:-mx_news_bot}"
 APP_DIR="${APP_DIR:-/opt/mx_news_bot}"
 NETWORK="${NETWORK:-${APP_NAME}_net}"
+# The bot reads everything it shows from lap_vision, which runs on this host behind its own
+# docker network. host.docker.internal is no help: it resolves to the bridge gateway, while the
+# lap_vision proxy is published on the loopback interface only. So the bot joins that network as
+# a second one and reaches the proxy by container name, the same way the database is shared.
+BACKEND_NETWORK="${BACKEND_NETWORK:-lapvision_net}"
 PUBLIC_PORT="${PUBLIC_PORT:-8585}"
 PUBLIC_BIND_ADDR="${PUBLIC_BIND_ADDR:-127.0.0.1}"
 IMAGE="${IMAGE:?IMAGE is required}"
+HEALTH_PATH="${HEALTH_PATH:-/healthz}"
 HEALTH_ATTEMPTS="${HEALTH_ATTEMPTS:-30}"
 HEALTH_SLEEP_SECONDS="${HEALTH_SLEEP_SECONDS:-2}"
 BOT_PORT="${BOT_PORT:-8085}"
@@ -66,6 +72,18 @@ fi
 log "pull image ${IMAGE}"
 docker pull "${IMAGE}"
 
+# Applied once, before any candidate serves traffic, using the image being deployed: the
+# migrations are baked into it, so they always match the code about to run.
+log "run database migrations"
+docker run --rm \
+  --network "${NETWORK}" \
+  "${docker_run_extra_args[@]}" \
+  -v "${CONFIG_PATH}:/app/config.json:ro" \
+  "${IMAGE}" \
+  -config /app/config.json \
+  -migrate-up \
+  -migrations /app/migrations
+
 active=""
 if [[ -f "${ACTIVE_FILE}" ]]; then
   active="$(cat "${ACTIVE_FILE}" || true)"
@@ -107,14 +125,23 @@ docker run -d \
   -v "${CONFIG_PATH}:/app/config.json:ro" \
   "${IMAGE}"
 
+if [[ -n "${BACKEND_NETWORK}" ]] && docker network inspect "${BACKEND_NETWORK}" >/dev/null 2>&1; then
+  log "attach ${new_name} to ${BACKEND_NETWORK}"
+  docker network connect "${BACKEND_NETWORK}" "${new_name}" >/dev/null 2>&1 || true
+else
+  log "backend network ${BACKEND_NETWORK} not found; the bot will not reach lap_vision"
+fi
+
 healthy=0
 for i in $(seq 1 "${HEALTH_ATTEMPTS}"); do
   if ! docker ps --format '{{.Names}}' | grep -qx "${new_name}"; then
     log "candidate ${new_name} is not running"
     break
   fi
+  # Probed on the metrics port rather than the bot port: the bot port only answers Telegram
+  # webhook posts, which a deploy cannot forge.
   if docker run --rm --network "${NETWORK}" curlimages/curl:8.12.1 \
-    -fsS "http://${new_name}:${METRICS_PORT}${METRICS_PATH}" >/dev/null; then
+    -fsS "http://${new_name}:${METRICS_PORT}${HEALTH_PATH}" >/dev/null; then
     healthy=1
     break
   fi
@@ -141,6 +168,16 @@ server {
         proxy_set_header X-Real-IP \$http_x_real_ip;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+
+    # lap_vision posts publication requests here. This proxy is bound to the loopback interface
+    # and the host's nginx does not forward the path, so it is reachable only from this machine;
+    # the request is additionally HMAC-signed.
+    location = /internal/publications {
+        proxy_pass http://${new_name}:${METRICS_PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header Connection "";
     }
 
     location = ${METRICS_PATH} {

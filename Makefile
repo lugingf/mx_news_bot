@@ -35,18 +35,6 @@ clean:
 build:
 	go build -ldflags "-s -w" -o mx_news_bot ./cmd/mx
 
-build-parser:
-	go build -ldflags "-s -w" -o parse ./cmd/parser
-
-build-uploader:
-	go build -ldflags "-s -w" -o upload ./cmd/uploader
-
-build-downloader:
-	go build -ldflags "-s -w" -o download ./cmd/downloader
-
-load-schedule:
-	go run ./cmd/schedule_loader -file $(file)
-
 run-ng:
 	# nohup ssh -R 80:localhost:8585 serveo.net > serveo_url.txt 2>&1 &
 	ngrok http 8585

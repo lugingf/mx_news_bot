@@ -1,59 +1,60 @@
 package service
 
 import (
-	"fmt"
+	"context"
 	"log/slog"
-	"sort"
-	"strconv"
 	"time"
 
 	"github.com/pkg/errors"
 
+	"mx_news_bot/internal/domain"
 	"mx_news_bot/internal/models"
-	"mx_news_bot/internal/storage"
 )
 
+// BotBackend answers the Telegram handlers. Since lap_vision became the source of truth it holds
+// no racing data and computes no points: every racing answer is a pass-through to the provider.
+// What is left here is presentation policy, such as which extra buttons a format needs.
 type BotBackend struct {
-	repo *storage.Repository
-	log  *slog.Logger
+	results domain.ResultsProvider
+	prefs   domain.PreferenceStore
+	log     *slog.Logger
 }
 
 const (
-	eventTypeStandard             = "Standard"
-	eventTypeTripleCrown          = "Triple Crown"
+	eventTypeTripleCrown = "Triple Crown"
+	// EventTypeTripleCrownStandings is not a race lap_vision knows about. It is a synthetic entry
+	// the bot adds so a user can ask for the combined result of a Triple Crown round.
 	EventTypeTripleCrownStandings = "Triple Crown Standings"
 )
 
-const (
-	raceTypeMainEvent = "Main Event"
-	raceTypeRace1     = "Race 1"
-	raceTypeRace2     = "Race 2"
-	raceTypeRace3     = "Race 3"
-
-	total = "total"
-)
-
-// NewApp initializes a new instance of the service layer
-func NewApp(repo *storage.Repository, log *slog.Logger) *BotBackend {
-	return &BotBackend{repo: repo, log: log}
+func NewApp(results domain.ResultsProvider, prefs domain.PreferenceStore, log *slog.Logger) *BotBackend {
+	return &BotBackend{results: results, prefs: prefs, log: log}
 }
 
-// GetAllChampionships fetches all championships available
-func (b *BotBackend) GetAllChampionships() ([]models.Championship, error) {
-	return b.GetAllChampionshipsBySeason(time.Now().Year())
+func (b *BotBackend) GetAllChampionships(ctx context.Context) ([]models.Championship, error) {
+	return b.GetAllChampionshipsBySeason(ctx, time.Now().Year())
 }
 
-func (b *BotBackend) GetAllChampionshipsBySeason(season int) ([]models.Championship, error) {
-	championships, err := b.repo.GetAllChampionshipsBySeason(season)
+func (b *BotBackend) GetAllChampionshipsBySeason(ctx context.Context, season int) ([]models.Championship, error) {
+	champs, err := b.results.Championships(ctx, season, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "bot: could not get all championships")
 	}
-	return championships, nil
+
+	return champs, nil
 }
 
-// GetChampionshipClasses fetches championships available
-func (b *BotBackend) GetChampionshipClasses(champID int) ([]models.RaceClass, error) {
-	classes, err := b.repo.GetChampionshipClasses(champID)
+func (b *BotBackend) GetChampionshipsWithRacesBySeason(ctx context.Context, season int) ([]models.Championship, error) {
+	champs, err := b.results.Championships(ctx, season, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "bot: could not get championships with races")
+	}
+
+	return champs, nil
+}
+
+func (b *BotBackend) GetChampionshipClasses(ctx context.Context, champID int) ([]models.RaceClass, error) {
+	classes, err := b.results.ChampionshipClasses(ctx, champID)
 	if err != nil {
 		return nil, errors.Wrap(err, "bot: could not get championship classes")
 	}
@@ -61,21 +62,8 @@ func (b *BotBackend) GetChampionshipClasses(champID int) ([]models.RaceClass, er
 	return classes, nil
 }
 
-// GetChampionshipsWithRaces fetches championships available
-func (b *BotBackend) GetChampionshipsWithRaces() ([]models.Championship, error) {
-	return b.GetChampionshipsWithRacesBySeason(time.Now().Year())
-}
-
-func (b *BotBackend) GetChampionshipsWithRacesBySeason(season int) ([]models.Championship, error) {
-	championships, err := b.repo.GetChampionshipsWithRacesBySeason(season)
-	if err != nil {
-		return nil, errors.Wrap(err, "bot: could not get championships with races")
-	}
-	return championships, nil
-}
-
-func (b *BotBackend) GetAvailableSeasons() ([]int, error) {
-	seasons, err := b.repo.GetAvailableSeasons()
+func (b *BotBackend) GetAvailableSeasons(ctx context.Context) ([]int, error) {
+	seasons, err := b.results.Seasons(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "bot: could not get available seasons")
 	}
@@ -83,286 +71,127 @@ func (b *BotBackend) GetAvailableSeasons() ([]int, error) {
 	return seasons, nil
 }
 
-func (b *BotBackend) GetCurrentStandings(champID int, class, region string) ([]models.Standing, error) {
-	events, err := b.repo.GetCompletedEventsByChampionship(champID)
+func (b *BotBackend) GetCurrentStandings(ctx context.Context, champID int, class, region string) ([]models.Standing, error) {
+	standings, err := b.results.Standings(ctx, champID, class, region)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get completed events: %w", err)
-	}
-
-	b.log.Info("Got events for current championship", "champ_id", champID, "class", class, "event_count", len(events))
-
-	// Use rider name as the unique identifier.
-	riderPoints := make(map[string]int)
-	// This map stores the rider names (the key is the rider's name itself).
-	riderNames := make(map[string]string)
-
-	// Process each event.
-	for _, event := range events {
-		switch event.Format {
-		case eventTypeStandard:
-			// For standard events, use the finishing positions from the main race.
-			raceResult, err := b.repo.GetRaceResultByDetails(event.ID, class, raceTypeMainEvent, region)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get race result for event %d: %w", event.ID, err)
-			}
-
-			for _, rider := range raceResult.Results {
-				pos, err := strconv.Atoi(rider.Position)
-				if err != nil {
-					return nil, fmt.Errorf("failed to convert position %q to int: %w", rider.Position, err)
-				}
-
-				points, err := b.repo.GetPointsForPosition(champID, pos)
-				if err != nil {
-					return nil, fmt.Errorf("failed to get points for position %d: %w", pos, err)
-				}
-
-				riderPoints[rider.Name] += points
-				riderNames[rider.Name] = rider.Name
-			}
-
-		case eventTypeTripleCrown:
-			// For Tripple Crown events, aggregate finishing positions from three races.
-			sumPositions := make(map[string]int)
-			for _, raceType := range []string{raceTypeRace1, raceTypeRace2, raceTypeRace3} {
-				raceResult, err := b.repo.GetRaceResultByDetails(event.ID, class, raceType, region)
-				if err != nil {
-					return nil, fmt.Errorf("failed to get race result for event %d race type %s: %w", event.ID, raceType, err)
-				}
-				for _, rider := range raceResult.Results {
-					pos, err := strconv.Atoi(rider.Position)
-					if err != nil {
-						return nil, fmt.Errorf("failed to convert position %q to int: %w", rider.Position, err)
-					}
-
-					sumPositions[rider.Name] += pos
-					riderNames[rider.Name] = rider.Name
-				}
-			}
-
-			// Create a slice to rank riders based on the sum of finishing positions (lower is better).
-			type riderScore struct {
-				Name string
-				Sum  int
-			}
-			var scores []riderScore
-			for name, sum := range sumPositions {
-				scores = append(scores, riderScore{Name: name, Sum: sum})
-			}
-			sort.Slice(scores, func(i, j int) bool {
-				return scores[i].Sum < scores[j].Sum
-			})
-
-			// Assign championship points based on the ranking.
-			for rank, rs := range scores {
-				// Ranking is one-indexed.
-				rankPosition := rank + 1
-				points, err := b.repo.GetPointsForPosition(champID, rankPosition)
-				if err != nil {
-					return nil, fmt.Errorf("failed to get points for rank %d: %w", rankPosition, err)
-				}
-
-				riderPoints[rs.Name] += points
-			}
-
-		default:
-			// Skip events with unknown format.
-			b.log.Info(fmt.Sprintf("Skipping event %d with unknown format: %s", event.ID, event.Format))
-			continue
-		}
-
-		b.log.Info("Race calculated", "race", event.Name, "format", event.Format)
-	}
-
-	b.log.Info("All race calculated", "rider_count", len(riderPoints))
-	// Build and sort the overall standings by total championship points (descending).
-	var standings []models.Standing
-	for name, pts := range riderPoints {
-		standings = append(standings, models.Standing{
-			RiderName: name,
-			Points:    pts,
-		})
-	}
-
-	sort.Slice(standings, func(i, j int) bool {
-		return standings[i].Points > standings[j].Points
-	})
-
-	b.log.Info("Current Championship Standings:")
-	for pos, s := range standings {
-		b.log.Info(fmt.Sprintf("%d. %s - %d points", pos+1, s.RiderName, s.Points))
+		return nil, errors.Wrap(err, "bot: could not get standings")
 	}
 
 	return standings, nil
 }
 
-func (b *BotBackend) GetUpcomingEvents() ([]models.Event, error) {
-	events, err := b.repo.GetUpcomingEvents()
+func (b *BotBackend) GetPointsDistribution(ctx context.Context, champID int) ([]models.PointsRow, error) {
+	points, err := b.results.PointsDistribution(ctx, champID)
+	if err != nil {
+		return nil, errors.Wrap(err, "bot: could not get points distribution")
+	}
+
+	return points, nil
+}
+
+func (b *BotBackend) GetUpcomingEvents(ctx context.Context) ([]models.Event, error) {
+	events, err := b.results.UpcomingEvents(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "bot: could not fetch upcoming events")
 	}
 
-	if len(events) == 0 {
-		return nil, nil
-	}
-
 	return events, nil
 }
 
-func (b *BotBackend) GetChampEvents(champID int) ([]models.Event, error) {
-	events, err := b.repo.GetChampEvents(champID)
+func (b *BotBackend) GetChampEvents(ctx context.Context, champID int) ([]models.Event, error) {
+	events, err := b.results.ChampionshipEvents(ctx, champID)
 	if err != nil {
 		return nil, errors.Wrap(err, "bot: could not fetch champ events")
 	}
 
-	if len(events) == 0 {
-		return nil, nil
-	}
-
 	return events, nil
 }
 
-func (b *BotBackend) GetCompletedEvents() ([]models.Event, error) {
-	return b.GetCompletedEventsBySeason(time.Now().Year())
+func (b *BotBackend) GetCompletedEvents(ctx context.Context) ([]models.Event, error) {
+	return b.GetCompletedEventsBySeason(ctx, time.Now().Year())
 }
 
-func (b *BotBackend) GetCompletedEventsBySeason(season int) ([]models.Event, error) {
-	events, err := b.repo.GetCompletedEventsBySeason(season)
+func (b *BotBackend) GetCompletedEventsBySeason(ctx context.Context, season int) ([]models.Event, error) {
+	events, err := b.results.CompletedEvents(ctx, season)
 	if err != nil {
 		return nil, errors.Wrap(err, "bot: could not fetch completed events")
 	}
 
-	if len(events) == 0 {
-		return nil, nil
-	}
-
 	return events, nil
 }
 
-func (b *BotBackend) GetEventRaces(eventID int) ([]models.EventRace, error) {
-	races, err := b.repo.GetEventRaces(eventID)
+// GetEventRaces lists the races a user can ask about. A Triple Crown round gets one extra entry
+// per class for the combined standings, which is a button rather than a race.
+func (b *BotBackend) GetEventRaces(ctx context.Context, eventID int) ([]models.EventRace, error) {
+	races, err := b.results.EventRaces(ctx, eventID)
 	if err != nil {
-		return nil, errors.Wrap(err, "bot: could not fetch format races")
+		return nil, errors.Wrap(err, "bot: could not fetch event races")
 	}
-
 	if len(races) == 0 {
 		return nil, nil
 	}
 
-	//format, err := b.repo.GetEventByID(eventID)
-	//if err != nil {
-	//	return nil, errors.Wrap(err, "bot: could not fetch format by PK")
-	//}
+	if races[0].EventFormat != eventTypeTripleCrown {
+		return races, nil
+	}
 
-	format := races[0].EventFormat
-	b.log.Info("Handling event format", "format", format)
-	// For Triple Crown we are interested in overall standings after 3 races
-	// We need additional buttons
-	if format == eventTypeTripleCrown {
-		classes := make(map[string]struct{})
-		for _, race := range races {
-			classes[race.Class] = struct{}{}
+	seen := make(map[string]struct{}, len(races))
+	classes := make([]string, 0, len(races))
+	for _, race := range races {
+		if _, ok := seen[race.Class]; ok {
+			continue
 		}
+		seen[race.Class] = struct{}{}
+		classes = append(classes, race.Class)
+	}
 
-		for class := range classes {
-			races = append(races, models.EventRace{RaceType: EventTypeTripleCrownStandings, EventID: eventID, Class: class})
-		}
+	// Appended in the order the classes appear, so the buttons do not shuffle between calls the
+	// way ranging over a map would make them.
+	for _, class := range classes {
+		races = append(races, models.EventRace{
+			RaceType: EventTypeTripleCrownStandings,
+			EventID:  eventID,
+			Class:    class,
+		})
 	}
 
 	return races, nil
 }
 
-func (b *BotBackend) GetEventRaceResultByDetails(eventID int, class, raceType string) (models.RaceResult, error) {
-	race, err := b.repo.GetRaceResultByDetails(eventID, class, raceType, "")
+func (b *BotBackend) GetEventRaceResultByDetails(ctx context.Context, eventID int, class, raceType string) (models.RaceResult, error) {
+	result, err := b.results.EventResult(ctx, eventID, class, raceType, "")
 	if err != nil {
 		b.log.Error("Failed to get event result", "error", err)
-		return race, errors.New("could not fetch event result")
+		return models.RaceResult{}, errors.Wrap(err, "bot: could not fetch event result")
+	}
+	if len(result.Results) == 0 {
+		return result, errors.New("no data found")
 	}
 
-	if race.Results == nil {
-		return race, errors.New("no data found")
-	}
-
-	b.log.Info("Event result fetched", "race", race.RaceType, "class", race.Class)
-
-	return race, nil
+	return result, nil
 }
 
-func (b *BotBackend) GetTripleCrownStandings(eventID int, class string) ([]models.StandingsRow, models.Event, error) {
-	races, err := b.repo.GetTripleCrownRaceResults(eventID, class)
+func (b *BotBackend) GetTripleCrownStandings(ctx context.Context, eventID int, class string) ([]models.StandingsRow, models.Event, error) {
+	rows, event, err := b.results.TripleCrownStandings(ctx, eventID, class)
 	if err != nil {
-		b.log.Error("Failed to get event result", "error", err)
-		return nil, models.Event{}, errors.New("could not fetch event result")
+		b.log.Error("Failed to get triple crown standings", "error", err)
+		return nil, models.Event{}, errors.Wrap(err, "bot: could not fetch triple crown standings")
+	}
+	if len(rows) == 0 {
+		return nil, event, errors.New("no data found")
 	}
 
-	if races == nil {
-		return nil, models.Event{}, errors.New("no data found")
-	}
-
-	penalty := make(map[string]int)
-	for _, race := range races {
-		penalty[race.RaceType] = len(race.Results) + 1
-	}
-
-	standingsMap := make(map[string]*models.StandingsRow)
-	for _, race := range races {
-		for _, rider := range race.Results {
-			pos, err := strconv.Atoi(rider.Position)
-			if err != nil {
-				continue
-			}
-
-			// Если гонщик ранее не встречался – создаём новую запись и назначаем штрафное значение для всех заездов.
-			if _, exists := standingsMap[rider.RiderNumber]; !exists {
-				standingsMap[rider.RiderNumber] = &models.StandingsRow{
-					RiderNumber: rider.RiderNumber,
-					Name:        rider.Name,
-					Bike:        rider.Bike,
-
-					R1: penalty["Race 1"],
-					R2: penalty["Race 2"],
-					R3: penalty["Race 3"],
-				}
-			}
-
-			switch race.RaceType {
-			case "Race 1":
-				standingsMap[rider.RiderNumber].R1 = pos
-			case "Race 2":
-				standingsMap[rider.RiderNumber].R2 = pos
-			case "Race 3":
-				standingsMap[rider.RiderNumber].R3 = pos
-			}
-		}
-	}
-
-	var standings []models.StandingsRow
-	for _, row := range standingsMap {
-		row.TotalPoints = row.R1 + row.R2 + row.R3
-		standings = append(standings, *row)
-	}
-
-	sort.Slice(standings, func(i, j int) bool {
-		return standings[i].TotalPoints < standings[j].TotalPoints
-	})
-
-	for i := range standings {
-		standings[i].TotalPosition = i + 1
-	}
-
-	event, err := b.repo.GetEventByID(eventID)
-	if err != nil {
-		return nil, models.Event{}, errors.Wrap(err, "GetTripleCrownStandings: can't get event by PK")
-	}
-
-	return standings, event, nil
+	return rows, event, nil
 }
 
-func (b *BotBackend) UpdateUserPreference(update storage.UserPreferenceUpdate) error {
-	err := b.repo.UpdateUserPreference(update)
-	if err != nil {
-		b.log.Error("Failed to update user preference", "error", err)
-		return errors.New("could not update user preferences")
-	}
-	return nil
+func (b *BotBackend) EnsureUser(ctx context.Context, user models.User) error {
+	return b.prefs.EnsureUser(ctx, user)
+}
+
+func (b *BotBackend) UpdateUserPreference(ctx context.Context, update domain.UserPreferenceUpdate) error {
+	return b.prefs.UpdateUserPreference(ctx, update)
+}
+
+func (b *BotBackend) UserPreference(ctx context.Context, tgUserID int64) (models.UserPreference, error) {
+	return b.prefs.UserPreference(ctx, tgUserID)
 }

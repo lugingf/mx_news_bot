@@ -32,7 +32,10 @@ func (b *Bot) showChampionshipScheduleFromNow(c tele.Context, uqData string) err
 		return c.Respond(&tele.CallbackResponse{Text: "Sorry. Race data corrupted. We'll fix it soon"})
 	}
 
-	events, err := b.app.GetChampEvents(id)
+	ctx, cancel := b.reqCtx()
+	defer cancel()
+
+	events, err := b.app.GetChampEvents(ctx, id)
 	if err != nil {
 		b.log.Error("Can't get champ events", "unique_id", noPref, "error", err)
 		return c.Respond(&tele.CallbackResponse{Text: "Sorry. Data corrupted. We'll fix it soon"})
@@ -48,10 +51,6 @@ func (b *Bot) showChampionshipScheduleFromNow(c tele.Context, uqData string) err
 		return errors.Wrap(err, "failed to send event schedule")
 	}
 
-	return nil
-}
-
-func (b *Bot) showChampionshipScheduleFull(c tele.Context, uqData string) error {
 	return nil
 }
 
@@ -72,9 +71,12 @@ func (b *Bot) showEventRaceResult(c tele.Context, uqData string) error {
 
 	class := parts[1]
 	raceType := parts[2]
-	switch {
-	case raceType == service.EventTypeTripleCrownStandings:
-		results, event, err := b.app.GetTripleCrownStandings(eventID, class)
+	switch raceType {
+	case service.EventTypeTripleCrownStandings:
+		ctx, cancel := b.reqCtx()
+		defer cancel()
+
+		results, event, err := b.app.GetTripleCrownStandings(ctx, eventID, class)
 		if err != nil {
 			b.log.Error("Event Race Result Triple: Failed to fetch result details",
 				"eventID", eventID,
@@ -94,7 +96,10 @@ func (b *Bot) showEventRaceResult(c tele.Context, uqData string) error {
 		}
 
 	default:
-		result, err := b.app.GetEventRaceResultByDetails(eventID, class, raceType)
+		ctx, cancel := b.reqCtx()
+		defer cancel()
+
+		result, err := b.app.GetEventRaceResultByDetails(ctx, eventID, class, raceType)
 		if err != nil {
 			b.log.Error("Event Race Result Standard: to fetch result details",
 				"eventID", eventID,
@@ -126,7 +131,10 @@ func (b *Bot) showEventRaces(c tele.Context, uqData string) error {
 		return c.Respond(&tele.CallbackResponse{Text: "Invalid event Name."})
 	}
 
-	races, err := b.app.GetEventRaces(eventID)
+	ctx, cancel := b.reqCtx()
+	defer cancel()
+
+	races, err := b.app.GetEventRaces(ctx, eventID)
 	if err != nil {
 		b.log.Error("Failed to fetch results details", "eventID", eventID, "error", err)
 		return c.Respond(&tele.CallbackResponse{Text: "Failed to fetch results details."})
@@ -190,7 +198,10 @@ func (b *Bot) showChampClassesMenuStandings(c tele.Context, uqData string) error
 		return c.Respond(&tele.CallbackResponse{Text: "Sorry. Race data corrupted. We'll fix it soon"})
 	}
 
-	classes, err := b.app.GetChampionshipClasses(id)
+	ctx, cancel := b.reqCtx()
+	defer cancel()
+
+	classes, err := b.app.GetChampionshipClasses(ctx, id)
 	if err != nil {
 		b.log.Error("Failed to get championships with races", "error", err)
 		return c.Send("An error occurred while listing champs. Please try again later.")
@@ -222,7 +233,10 @@ func (b *Bot) showCurrentStandings(c tele.Context, uqData string) error {
 		return c.Respond(&tele.CallbackResponse{Text: "Sorry. Race data corrupted. We'll fix it soon"})
 	}
 
-	standings, err := b.app.GetCurrentStandings(id, parts[1], parts[2])
+	ctx, cancel := b.reqCtx()
+	defer cancel()
+
+	standings, err := b.app.GetCurrentStandings(ctx, id, parts[1], parts[2])
 	if err != nil {
 		b.log.Error("Failed to prepare standings", "error", err)
 		return c.Send("Unable to prepare standings at the moment.")
@@ -246,7 +260,10 @@ func (b *Bot) showScheduleChampionshipsBySeason(c tele.Context, uqData string) e
 		return c.Respond(&tele.CallbackResponse{Text: "Invalid season selected"})
 	}
 
-	champs, err := b.app.GetAllChampionshipsBySeason(season)
+	ctx, cancel := b.reqCtx()
+	defer cancel()
+
+	champs, err := b.app.GetAllChampionshipsBySeason(ctx, season)
 	if err != nil {
 		b.log.Error("Failed to get all championships by season", "season", season, "error", err)
 		return c.Send("An error occurred while listing championships.")
@@ -275,7 +292,10 @@ func (b *Bot) showResultsChampionshipsBySeason(c tele.Context, uqData string) er
 		return c.Respond(&tele.CallbackResponse{Text: "Invalid season selected"})
 	}
 
-	champs, err := b.app.GetChampionshipsWithRacesBySeason(season)
+	ctx, cancel := b.reqCtx()
+	defer cancel()
+
+	champs, err := b.app.GetChampionshipsWithRacesBySeason(ctx, season)
 	if err != nil {
 		b.log.Error("Failed to get championships with races by season", "season", season, "error", err)
 		return c.Send("An error occurred while listing championships.")
@@ -304,7 +324,10 @@ func (b *Bot) showEventResultsBySeason(c tele.Context, uqData string, showAll bo
 		return c.Respond(&tele.CallbackResponse{Text: "Invalid season selected"})
 	}
 
-	events, err := b.app.GetCompletedEventsBySeason(season)
+	ctx, cancel := b.reqCtx()
+	defer cancel()
+
+	events, err := b.app.GetCompletedEventsBySeason(ctx, season)
 	if err != nil {
 		b.log.Error("Failed to fetch events by season", "season", season, "error", err)
 		return c.Send("An error occurred while fetching events. Please try again later.")

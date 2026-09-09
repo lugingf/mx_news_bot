@@ -1,6 +1,9 @@
 package bot
 
 import (
+	"context"
+	"time"
+
 	"fmt"
 	"log/slog"
 	"sync"
@@ -20,6 +23,14 @@ type Bot struct {
 	log             *slog.Logger
 }
 
+// reqCtx bounds one user interaction. telebot has no context of its own, so every call into the
+// backend gets its own deadline rather than hanging on an unresponsive lap_vision.
+const backendTimeout = 20 * time.Second
+
+func (b *Bot) reqCtx() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), backendTimeout)
+}
+
 func (b *Bot) Start() {
 	b.Client.Start()
 }
@@ -28,14 +39,11 @@ func (b *Bot) Stop() {
 	b.Client.Stop()
 }
 
+// New builds the Telegram client. The webhook is served over plain HTTP because nginx terminates
+// TLS in front of it and proxies the webhook path in: the bot has no certificate of its own, and
+// the one this used to point at belonged to an unrelated domain, so any host but that one failed
+// to start. PublicURL is what Telegram is told to call, and that is the https address.
 func New(cfg *config.Bot, app *service.BotBackend, log *slog.Logger) *Bot {
-	var tls *tele.WebhookTLS
-	if !cfg.Local {
-		tls = &tele.WebhookTLS{
-			Cert: "/etc/letsencrypt/live/lugingfwebhookambot.com/fullchain.pem",
-			Key:  "/etc/letsencrypt/live/lugingfwebhookambot.com/privkey.pem",
-		}
-	}
 	botClient, err := tele.NewBot(tele.Settings{
 		Token: cfg.BotToken,
 		Poller: &tele.Webhook{
@@ -43,7 +51,6 @@ func New(cfg *config.Bot, app *service.BotBackend, log *slog.Logger) *Bot {
 			Endpoint: &tele.WebhookEndpoint{
 				PublicURL: cfg.HookUrl,
 			},
-			TLS: tls,
 		},
 		Verbose: cfg.BotVerbose,
 	})

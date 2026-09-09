@@ -1,40 +1,41 @@
 {
-  "ngrok": {
-    "addr": "https://3d16c0b37937f473db346673984e745d.serveo.net",
-    "token": ""
-  },
   "app": {
     "bot": {
-      "token": "",
-      "hook": "https://3d16c0b37937f473db346673984e745d.serveo.net",
+      "port": 8585,
+      "token": "TELEGRAM_BOT_TOKEN",
+      "hook": "https://bot.example.com/telegram-webhook",
       "verbose": false
+    }
+  },
+  "lap_vision": {
+    "base_url": "http://lap_vision:8686",
+    "internal_token": "SHARED_INTERNAL_TOKEN",
+    "request_timeout": "15s",
+    "webhook_secret": "HMAC_SECRET_SHARED_WITH_LAP_VISION"
+  },
+  "publishing": {
+    "telegram": {
+      "enabled": true,
+      "chat_id": "@your_channel"
     },
-    "champ_configs": {
-      "sx": {
-        "base_url": "https://archives.amasupercross.com"
-      },
-      "promx": {
-        "base_url": "https://www.americanmotocrossresults.com"
-      }
+    "twitter": {
+      "enabled": false,
+      "api_key": "",
+      "api_secret": "",
+      "access_token": "",
+      "access_token_secret": ""
+    },
+    "instagram": {
+      "enabled": false,
+      "access_token": "",
+      "account_id": ""
     }
   },
   "metrics": {
-    "port": 9595,
+    "port": "9595",
     "read_timeout": "30s"
   },
-  "http": {
-    "port": 8585,
-    "read_timeout": "15s",
-    "local": true
-  },
   "database": {
-    "mx_conn": {
-      "host": "localhost",
-      "port": 6444,
-      "user": "",
-      "dbname": "",
-      "sslmode": "disable",
-      "password": ""
-    }
+    "conn": "postgres://user:password@localhost:6444/mx_news_bot?sslmode=disable"
   }
 }

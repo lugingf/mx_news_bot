@@ -3,6 +3,7 @@ package formatter
 import (
 	"fmt"
 	"mx_news_bot/internal/models"
+	"strconv"
 	"strings"
 )
 
@@ -79,7 +80,7 @@ func (f *TgFormatter) FormatEventsSchedule(events []models.Event) string {
 		sb.WriteString(event.Name)
 		sb.WriteString("*\n")
 		sb.WriteString(" Round: ")
-		sb.WriteString(event.RoundNumber)
+		sb.WriteString(strconv.Itoa(event.RoundNumber))
 		sb.WriteString(" | ")
 		sb.WriteString(EmojiBook)
 		sb.WriteString(" ")
@@ -103,7 +104,7 @@ func (f *TgFormatter) FormatUpcomingEvents(event models.Event) string {
 		`*%s - %s*
 
 %s *Date %s*
-%s *Round*: %s
+%s *Round*: %d
 %s *Staduim*: %s
 %s *Format*: %s
 
@@ -153,7 +154,7 @@ func (f *TgFormatter) FormatEventResultTable(event models.RaceResult) string {
 	builder.WriteString(strings.Repeat("-", 45) + "\n")
 	for _, rider := range event.Results {
 		builder.WriteString(fmt.Sprintf(
-			"%-3s | %-3s | %-20s | %-7s\n",
+			"%-3d | %-3s | %-20s | %-7s\n",
 			rider.Position, rider.RiderNumber, rider.Name, rider.Bike,
 		))
 	}
@@ -175,7 +176,7 @@ func (f *TgFormatter) FormatTripleCrownResultTable(event models.Event, class str
 		`%s *Date:* %s
 %s *Track:* %s
 %s *Race:* %s
-%s *Round:* %s
+%s *Round:* %d
 %s *Class:* %s
 
 `,

@@ -29,7 +29,10 @@ func (b *Bot) mainMenu() *tele.ReplyMarkup {
 }
 
 func (b *Bot) showUpcomingEvents(c tele.Context) error {
-	events, err := b.app.GetUpcomingEvents()
+	ctx, cancel := b.reqCtx()
+	defer cancel()
+
+	events, err := b.app.GetUpcomingEvents(ctx)
 	if err != nil {
 		b.log.Error("Failed to get upcoming events: ", "error", err)
 		return c.Send("Sorry, can't get upcoming events")
@@ -70,7 +73,10 @@ func (b *Bot) showEventResults(c tele.Context) error {
 }
 
 func (b *Bot) showSeasonSelectionMenu(c tele.Context, prefix, title string) error {
-	seasons, err := b.app.GetAvailableSeasons()
+	ctx, cancel := b.reqCtx()
+	defer cancel()
+
+	seasons, err := b.app.GetAvailableSeasons(ctx)
 	if err != nil {
 		b.log.Error("Failed to fetch seasons", "error", err)
 		return c.Send("An error occurred while fetching seasons. Please try again later.")
@@ -125,7 +131,10 @@ func (b *Bot) manageNotifications(c tele.Context) error {
 // Set Default Championship Handler
 func (b *Bot) setDefaultChampionship(c tele.Context) error {
 	// Fetch championships from the repository
-	championships, err := b.app.GetAllChampionships()
+	ctx, cancel := b.reqCtx()
+	defer cancel()
+
+	championships, err := b.app.GetAllChampionships(ctx)
 	if err != nil {
 		b.log.Error("Failed to fetch championships", "error", err)
 		return c.Send("Unable to fetch championships at the moment.")
@@ -150,13 +159,8 @@ func (b *Bot) sendEventMaps(c tele.Context, event models.Event) error {
 	}
 
 	// Build file name pattern, e.g. "Rd05*.png"
-	rn, err := strconv.Atoi(event.RoundNumber)
-	if err != nil {
-		return errors.Wrap(err, "can't convert round number")
-	}
-
 	seasonYear := event.Date.Year()
-	pattern := fmt.Sprintf("Rd%02d*.png", rn)
+	pattern := fmt.Sprintf("Rd%02d*.png", event.RoundNumber)
 	matches, err := filepath.Glob(filepath.Join(".", "maps", "SX", strconv.Itoa(seasonYear), pattern))
 	if err != nil {
 		b.log.Error("Error searching files", "pattern", pattern, "error", err)

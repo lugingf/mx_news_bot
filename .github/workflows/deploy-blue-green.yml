@@ -104,6 +104,8 @@ jobs:
       PUBLIC_PORT: ${{ vars.PUBLIC_PORT || '8585' }}
       PUBLIC_BIND_ADDR: ${{ vars.PUBLIC_BIND_ADDR || '127.0.0.1' }}
       NETWORK: ${{ vars.DEPLOY_NETWORK || 'mx_news_bot_net' }}
+      # lap_vision's network, joined as a second one so the bot can reach its API.
+      BACKEND_NETWORK: ${{ vars.BACKEND_NETWORK || 'lapvision_net' }}
       WEBHOOK_PATH: ${{ vars.WEBHOOK_PATH }}
       METRICS_PATH: ${{ vars.METRICS_PATH || '/metrics-mx' }}
       ENABLE_HOST_GATEWAY: ${{ vars.ENABLE_HOST_GATEWAY || 'true' }}
@@ -155,4 +157,4 @@ jobs:
           REMOTE_DIR="${APP_DIR:-/opt/mx_news_bot}"
           IMAGE="${{ needs.build-and-push-image.outputs.image }}"
           GHCR_USER="${GHCR_USERNAME:-${GITHUB_ACTOR}}"
-          ssh -p "${PORT}" "${AWS_SSH_USER}@${AWS_SSH_HOST}" "chmod +x '${REMOTE_DIR}/blue-green-deploy.sh' && APP_NAME='${APP_NAME}' APP_DIR='${REMOTE_DIR}' PUBLIC_PORT='${PUBLIC_PORT}' PUBLIC_BIND_ADDR='${PUBLIC_BIND_ADDR}' NETWORK='${NETWORK}' WEBHOOK_PATH='${WEBHOOK_PATH}' METRICS_PATH='${METRICS_PATH}' ENABLE_HOST_GATEWAY='${ENABLE_HOST_GATEWAY}' IMAGE='${IMAGE}' GHCR_USERNAME='${GHCR_USER}' GHCR_TOKEN='${GHCR_TOKEN}' '${REMOTE_DIR}/blue-green-deploy.sh'"
+          ssh -p "${PORT}" "${AWS_SSH_USER}@${AWS_SSH_HOST}" "chmod +x '${REMOTE_DIR}/blue-green-deploy.sh' && APP_NAME='${APP_NAME}' APP_DIR='${REMOTE_DIR}' PUBLIC_PORT='${PUBLIC_PORT}' PUBLIC_BIND_ADDR='${PUBLIC_BIND_ADDR}' NETWORK='${NETWORK}' BACKEND_NETWORK='${BACKEND_NETWORK}' WEBHOOK_PATH='${WEBHOOK_PATH}' METRICS_PATH='${METRICS_PATH}' ENABLE_HOST_GATEWAY='${ENABLE_HOST_GATEWAY}' IMAGE='${IMAGE}' GHCR_USERNAME='${GHCR_USER}' GHCR_TOKEN='${GHCR_TOKEN}' '${REMOTE_DIR}/blue-green-deploy.sh'"

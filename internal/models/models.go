@@ -1,26 +1,54 @@
 package models
 
 import (
-	"github.com/lib/pq"
 	"time"
 )
 
-type User struct {
-	ID        int64  `db:"id"`
-	TGUserID  int64  `db:"tg_user_id"`
-	Name      string `db:"name"`
-	IsPremium bool   `db:"is_premium"`
+// The racing types below mirror the lap_vision /moto/* responses. The bot owns no racing data any
+// more, so they carry json tags and no db tags: nothing here is ever selected from a table.
+
+type Championship struct {
+	ID         int      `json:"id"`
+	Name       string   `json:"championship_name"`
+	ClassNames []string `json:"class_names"`
+	SeasonYear int      `json:"season_year"`
+	Discipline string   `json:"discipline"`
 }
 
-type StandingsRow struct {
-	TotalPosition int
-	RiderNumber   string
-	Name          string
-	Bike          string
-	R1            int
-	R2            int
-	R3            int
-	TotalPoints   int
+type Event struct {
+	ID               int       `json:"id"`
+	ChampionshipName string    `json:"championship_name"`
+	Name             string    `json:"name"`
+	Classes          string    `json:"classes"`
+	Location         string    `json:"location"`
+	Stadium          string    `json:"venue_name"`
+	RoundNumber      int       `json:"round_number"`
+	TrackID          int       `json:"track_id"`
+	Date             time.Time `json:"event_date"`
+	Format           string    `json:"event_format"`
+	Status           string    `json:"event_status"`
+}
+
+type RaceClass struct {
+	Class  string `json:"class"`
+	Region string `json:"region"`
+}
+
+type EventRace struct {
+	EventID     int    `json:"event_id"`
+	Class       string `json:"class"`
+	RaceType    string `json:"race_type"`
+	EventFormat string `json:"event_format"`
+}
+
+type Rider struct {
+	RiderID     int    `json:"rider_id"`
+	Position    int    `json:"pos"`
+	RiderNumber string `json:"rider_number"`
+	Name        string `json:"rider"`
+	Hometown    string `json:"hometown"`
+	Bike        string `json:"bike"`
+	Team        string `json:"team"`
 }
 
 type RaceResult struct {
@@ -38,67 +66,49 @@ type RaceResult struct {
 	Results     []Rider   `json:"results"`
 }
 
-type Rider struct {
-	Position    string `json:"pos"`
-	RiderNumber string `json:"rider_number"`
-	Name        string `json:"rider"`
-	Hometown    string `json:"hometown"`
-	Bike        string `json:"bike"`
-	Team        string `json:"team"`
-}
-
-// Championship model representing championship details
-type Championship struct {
-	ID         int            `db:"id"`
-	Name       string         `db:"championship_name"`
-	ClassNames pq.StringArray `db:"class_names"`
-	SeasonYear int            `db:"season_year"`
-}
-
-// Event model representing motocross event details
-type Event struct {
-	ID               int       `db:"id"`
-	ChampionshipName string    `db:"championship_name"`
-	Name             string    `db:"name"`
-	Classes          string    `db:"classes"`
-	Stadium          string    `db:"venue_name"`
-	RoundNumber      string    `db:"round_number"`
-	TrackID          int       `db:"track_id"`
-	Date             time.Time `db:"event_date"`
-	Format           string    `db:"event_format"`
-	Status           string    `db:"event_status"` // upcoming or completed
-}
-
-type RaceClass struct {
-	Class  string `db:"class"`
-	Region string `db:"region"`
-}
-
-type EventToCheck struct {
-	ChampionshipID int       `db:"championship_id"`
-	Name           string    `db:"name"`
-	Classes        string    `db:"classes"`
-	RoundNumber    string    `db:"round_number"`
-	Format         string    `db:"event_format"`
-	Date           time.Time `db:"event_date"`
-}
-
-type EventRace struct {
-	EventID     int    `db:"id"`
-	Class       string `db:"class"`
-	RaceType    string `db:"race_type"`
-	EventFormat string `db:"event_format"`
-}
-
 type Standing struct {
-	RiderName string
-	Points    int
+	RiderID   int    `json:"rider_id"`
+	RiderName string `json:"rider_name"`
+	Points    int    `json:"points"`
 }
 
-// UserPreference model representing user preferences such as default championship and notifications
+type StandingsRow struct {
+	RiderID       int    `json:"rider_id"`
+	TotalPosition int    `json:"total_position"`
+	RiderNumber   string `json:"rider_number"`
+	Name          string `json:"name"`
+	Bike          string `json:"bike"`
+	R1            int    `json:"r1"`
+	R2            int    `json:"r2"`
+	R3            int    `json:"r3"`
+	TotalPoints   int    `json:"total_points"`
+}
+
+type PointsRow struct {
+	Position int `json:"position"`
+	Points   int `json:"points"`
+}
+
+// The types below are the bot's own state and do come from its database.
+
+type User struct {
+	ID        int64  `db:"id"`
+	TGUserID  int64  `db:"tg_user_id"`
+	Name      string `db:"name"`
+	IsPremium bool   `db:"is_premium"`
+}
+
 type UserPreference struct {
 	PreferenceID          int   `db:"preference_id"`
 	TGUserID              int64 `db:"tg_user_id"`
 	DefaultChampionshipID *int  `db:"default_championship_id"`
 	NotificationsEnabled  bool  `db:"notifications_enabled"`
+}
+
+// DeliveryChannel is a registered destination for published content.
+type DeliveryChannel struct {
+	ID      int64  `db:"id"`
+	Channel string `db:"channel"`
+	Target  string `db:"target"`
+	Enabled bool   `db:"enabled"`
 }
