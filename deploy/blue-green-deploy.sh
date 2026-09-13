@@ -226,6 +226,17 @@ docker run -d \
   -v "${NGINX_CONF}:/etc/nginx/conf.d/default.conf:ro" \
   nginx:1.27-alpine
 
+# lap_vision posts publication requests to this proxy, and it has to reach it by a name that does
+# not change with the colour. The published port is on the loopback interface, which a container
+# cannot use — host.docker.internal resolves to the bridge gateway — so the proxy joins the
+# lap_vision network too, exactly as the bot joins it to read from lap_vision.
+if [[ -n "${BACKEND_NETWORK}" ]] && docker network inspect "${BACKEND_NETWORK}" >/dev/null 2>&1; then
+  log "attach ${PROXY_NAME} to ${BACKEND_NETWORK}"
+  docker network connect "${BACKEND_NETWORK}" "${PROXY_NAME}" >/dev/null 2>&1 || true
+else
+  log "backend network ${BACKEND_NETWORK} not found; lap_vision will not reach the publication webhook"
+fi
+
 echo "${next}" > "${ACTIVE_FILE}"
 
 if docker ps --format '{{.Names}}' | grep -qx "${old_name}"; then

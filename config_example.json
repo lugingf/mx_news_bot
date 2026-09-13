@@ -8,7 +8,7 @@
     }
   },
   "lap_vision": {
-    "base_url": "http://lap_vision:8686",
+    "base_url": "http://lapvision-proxy",
     "internal_token": "SHARED_INTERNAL_TOKEN",
     "request_timeout": "15s",
     "webhook_secret": "HMAC_SECRET_SHARED_WITH_LAP_VISION",
@@ -17,7 +17,7 @@
   "publishing": {
     "telegram": {
       "enabled": true,
-      "chat_id": "@your_channel"
+      "chat_id": ""
     },
     "twitter": {
       "enabled": false,
@@ -31,8 +31,8 @@
       "access_token": "",
       "account_id": ""
     },
-    "_channels": "Каналы доставки живут в таблице delivery_channels и настраиваются из админки lap_vision (Публикации → Каналы доставки), а не здесь. Отбор — тремя фильтрами: disciplines, championships, post_types. Пустой список = не сужает, фильтры складываются по AND. Мото-канал: disciplines '{moto}'. Только Supercross: championships '{AMA Supercross}'. Тестовый канал: все три пустые — он видит всё. Адресат — @имя или числовой chat id вида -1004362440814.",
-    "_telegram": "enabled включает отправку; chat_id — запасной адресат, если в delivery_channels ничего нет."
+    "_channels": "Каналы доставки живут в таблице delivery_channels и настраиваются из админки lap_vision (Публикации → Каналы доставки), а не здесь. Отбор — тремя фильтрами: disciplines, championships, post_types; пустой список = не сужает, фильтры складываются по AND. Отдельный флаг rehearsal: такой канал получает ТОЛЬКО репетиции (кнопка «В тест»), а боевые каналы репетиции не получают. Адресат — @имя или числовой chat id вида -1004362440814. Бот должен быть админом канала, иначе отправка падает.",
+    "_telegram": "enabled включает отправку в Telegram. chat_id — запасной адресат на случай, если в delivery_channels нет ни одной строки; при настроенных каналах не используется."
   },
   "metrics": {
     "port": "9595",
