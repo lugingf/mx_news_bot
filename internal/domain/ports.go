@@ -11,6 +11,10 @@ import (
 // answers very differently.
 var ErrNotFound = errors.New("not found")
 
+// ErrChannelNotFound separates an edit of a channel that is no longer there from a failing
+// database: the administration screen answers 404 to the first and 500 to the second.
+var ErrChannelNotFound = errors.New("delivery channel not found")
+
 // ResultsProvider is everything the bot needs to know about racing. It is exactly the surface the
 // Telegram handlers call, so an implementation is either the lap_vision API or a test double —
 // the bot itself computes nothing.

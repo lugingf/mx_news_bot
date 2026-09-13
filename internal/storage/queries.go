@@ -26,14 +26,44 @@ const (
 		    updated_at              = now()
 	`
 
-	// An empty event_types means the channel takes everything; otherwise it must list the type.
+	// Each filter is "empty means everything", and they are combined with AND. A channel is
+	// therefore described by what it narrows down — a discipline, a championship, a kind of post —
+	// and a channel that narrows nothing, the rehearsal one, receives every publication.
 	sqlListDeliveryChannels = `
 		SELECT id, channel_type AS channel, target, enabled
 		FROM delivery_channels
 		WHERE enabled = TRUE
-		  AND (cardinality(event_types) = 0 OR $1 = ANY (event_types))
+		  AND (cardinality(event_types) = 0   OR $1 = ANY (event_types))
+		  AND (cardinality(disciplines) = 0   OR $2 = ANY (disciplines))
+		  AND (cardinality(championships) = 0 OR $3 = ANY (championships))
+		  AND (cardinality(post_types) = 0    OR $4 = ANY (post_types))
+		  AND rehearsal = $5
 		ORDER BY id
 	`
+
+	// The administration screen sees every channel, including the disabled ones: a channel that
+	// has been switched off still has to be findable to be switched back on.
+	sqlListAllDeliveryChannels = `
+		SELECT id, channel_type, target, title, enabled, rehearsal, disciplines, championships, post_types
+		FROM delivery_channels
+		ORDER BY channel_type, id
+	`
+
+	sqlInsertDeliveryChannel = `
+		INSERT INTO delivery_channels (channel_type, target, title, enabled, rehearsal, disciplines, championships, post_types)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id, channel_type, target, title, enabled, rehearsal, disciplines, championships, post_types
+	`
+
+	sqlUpdateDeliveryChannel = `
+		UPDATE delivery_channels
+		SET target = $2, title = $3, enabled = $4, rehearsal = $5,
+		    disciplines = $6, championships = $7, post_types = $8, updated_at = now()
+		WHERE id = $1
+		RETURNING id, channel_type, target, title, enabled, rehearsal, disciplines, championships, post_types
+	`
+
+	sqlDeleteDeliveryChannel = `DELETE FROM delivery_channels WHERE id = $1`
 
 	// The insert is the idempotency check: a second delivery of the same lap_vision event id
 	// changes nothing and reports that it was already known.

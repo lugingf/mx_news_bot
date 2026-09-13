@@ -20,6 +20,7 @@ import (
 	"mx_news_bot/internal/bot"
 	"mx_news_bot/internal/publishing/builder"
 	"mx_news_bot/internal/publishing/channel"
+	"mx_news_bot/internal/publishing/contract"
 	"mx_news_bot/internal/publishing/dispatcher"
 	"mx_news_bot/internal/publishing/render"
 	"mx_news_bot/internal/service"
@@ -70,7 +71,7 @@ func main() {
 	publisher.Register(render.NewTwitter(), channel.NewTwitter(cfg.Publishing.Twitter.Enabled))
 	publisher.Register(render.NewInstagram(), channel.NewInstagram(cfg.Publishing.Instagram.Enabled))
 
-	webhookHandler := webhook.New(cfg.LapVision.WebhookSecret, publisher, logger)
+	webhookHandler := webhook.New(cfg.LapVision.WebhookSecret, publisher, repository, logger)
 
 	// Metrics
 	config.InitMetrics()
@@ -94,6 +95,13 @@ func runMetricServer(cfg *config.Metrics, wh *webhook.Handler, log *slog.Logger)
 	mh := chi.NewRouter()
 	mh.HandleFunc("/metrics", promhttp.Handler().ServeHTTP)
 	mh.Post("/internal/publications", wh.Publications)
+
+	// The delivery channels are administered from lap_vision: the screen is there, the rows and
+	// the tokens are here.
+	mh.Get(contract.ChannelsPath, wh.Channels)
+	mh.Post(contract.ChannelsPath, wh.Channels)
+	mh.Put(contract.ChannelsPath+"/{id}", wh.Channels)
+	mh.Delete(contract.ChannelsPath+"/{id}", wh.Channels)
 
 	// The bot itself only speaks Telegram webhooks, which a deploy cannot probe without
 	// impersonating Telegram. This is what the blue-green health check calls instead.

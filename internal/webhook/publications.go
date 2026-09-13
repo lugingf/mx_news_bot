@@ -23,11 +23,12 @@ const (
 type Handler struct {
 	secret     string
 	dispatcher *dispatcher.Dispatcher
+	channels   ChannelStore
 	log        *slog.Logger
 }
 
-func New(secret string, d *dispatcher.Dispatcher, log *slog.Logger) *Handler {
-	return &Handler{secret: strings.TrimSpace(secret), dispatcher: d, log: log}
+func New(secret string, d *dispatcher.Dispatcher, channels ChannelStore, log *slog.Logger) *Handler {
+	return &Handler{secret: strings.TrimSpace(secret), dispatcher: d, channels: channels, log: log}
 }
 
 // Publications accepts a publication request from lap_vision.

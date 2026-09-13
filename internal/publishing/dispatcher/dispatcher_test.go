@@ -25,6 +25,8 @@ type fakeStore struct {
 	delivered  map[int64]struct{}
 	marks      []mark
 	claimCalls int
+
+	asked contract.Match
 }
 
 type mark struct {
@@ -55,7 +57,12 @@ func (s *fakeStore) ClaimPublication(_ context.Context, eventID, _ string, _ []b
 	return true, nil
 }
 
-func (s *fakeStore) DeliveryChannelsFor(context.Context, string) ([]models.DeliveryChannel, error) {
+func (s *fakeStore) DeliveryChannelsFor(_ context.Context, match contract.Match) ([]models.DeliveryChannel, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.asked = match
+
 	return s.channels, nil
 }
 
@@ -159,6 +166,59 @@ func testDispatcher(store Store, publishers ...channel.Publisher) *Dispatcher {
 	}
 
 	return d
+}
+
+// Moto and F1 go to different channels while carrying the same event type, and Supercross may go
+// somewhere Pro Motocross does not. Everything the channel table filters on is read out of the
+// payload, so a lookup that dropped any of it would hand a post to a channel that never asked.
+func TestDispatchLooksUpChannelsByEverythingAChannelFiltersOn(t *testing.T) {
+	payload, err := json.Marshal(contract.RenderedPostPayload{
+		Discipline:   "moto",
+		Championship: "AMA Supercross",
+		PostType:     "event_result",
+		Title:        "Anaheim 1",
+	})
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+
+	store := newStore(models.DeliveryChannel{ID: 1, Channel: "telegram", Target: "@moto", Enabled: true})
+	telegram := &recordingPublisher{name: "telegram"}
+
+	envelope := contract.Envelope{
+		ID:      "evt-moto",
+		Type:    contract.TypeRenderedPost,
+		Version: contract.Version,
+		Payload: payload,
+	}
+	if _, err := testDispatcher(store, telegram).Dispatch(context.Background(), envelope); err != nil {
+		t.Fatalf("Dispatch: %v", err)
+	}
+
+	want := contract.Match{
+		EventType:    contract.TypeRenderedPost,
+		Discipline:   "moto",
+		Championship: "AMA Supercross",
+		PostType:     "event_result",
+	}
+	if store.asked != want {
+		t.Errorf("channels looked up for %+v, want %+v", store.asked, want)
+	}
+}
+
+// A payload that carries none of the filters must not be treated as belonging to any: it reaches
+// only the channels that narrow nothing, which the store decides.
+func TestDispatchAsksForNoFiltersWhenPayloadHasNone(t *testing.T) {
+	store := newStore(models.DeliveryChannel{ID: 1, Channel: "telegram", Target: "@chan", Enabled: true})
+	telegram := &recordingPublisher{name: "telegram"}
+
+	if _, err := testDispatcher(store, telegram).Dispatch(context.Background(), testEnvelope(t)); err != nil {
+		t.Fatalf("Dispatch: %v", err)
+	}
+
+	if store.asked.Discipline != "" || store.asked.Championship != "" || store.asked.PostType != "" {
+		t.Errorf("channels looked up for %+v, want only the event type", store.asked)
+	}
 }
 
 // One channel failing must not stop the others: a broken Twitter token cannot cost the Telegram

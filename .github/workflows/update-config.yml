@@ -1,0 +1,92 @@
+name: update-config
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+# Same group as this repository's deploy-blue-green, so a config push and a deploy never
+# overlap on the host.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  update-config:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    env:
+      AWS_SSH_HOST: ${{ secrets.AWS_SSH_HOST }}
+      AWS_SSH_USER: ${{ secrets.AWS_SSH_USER }}
+      AWS_SSH_PORT: ${{ secrets.AWS_SSH_PORT }}
+      DEPLOY_CONFIG_JSON: ${{ secrets.DEPLOY_CONFIG_JSON }}
+      APP_NAME: ${{ vars.APP_NAME || 'mx_news_bot' }}
+      APP_DIR: ${{ vars.APP_DIR || '/opt/mx_news_bot' }}
+      PROXY_NAME: ${{ vars.PROXY_NAME || 'mx_news_bot-proxy' }}
+
+      # IdentitiesOnly is deliberately absent: the deploy key lives in the ssh-agent and no
+      # IdentityFile is written, so it would make ssh offer nothing at all.
+      SSH_OPTS: -o BatchMode=yes -o PreferredAuthentications=publickey
+
+    steps:
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.AWS_SSH_PRIVATE_KEY }}
+
+      - name: Validate settings
+        run: |
+          : "${AWS_SSH_HOST:?AWS_SSH_HOST secret is required}"
+          : "${AWS_SSH_USER:?AWS_SSH_USER secret is required}"
+          : "${DEPLOY_CONFIG_JSON:?DEPLOY_CONFIG_JSON secret is required}"
+          # The restart below has no rollback, so malformed JSON would leave the active
+          # container crash-looping on a config it cannot parse.
+          printf '%s' "${DEPLOY_CONFIG_JSON}" | jq empty
+
+      - name: Add AWS host key
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          PORT="${AWS_SSH_PORT:-22}"
+          ssh-keyscan -p "${PORT}" "${AWS_SSH_HOST}" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Upload runtime config
+        run: |
+          PORT="${AWS_SSH_PORT:-22}"
+          REMOTE_DIR="${APP_DIR}"
+          TMP_CONFIG="$(mktemp)"
+          printf '%s' "${DEPLOY_CONFIG_JSON}" > "${TMP_CONFIG}"
+          ssh ${SSH_OPTS} -p "${PORT}" "${AWS_SSH_USER}@${AWS_SSH_HOST}" "mkdir -p '${REMOTE_DIR}'"
+          scp ${SSH_OPTS} -P "${PORT}" "${TMP_CONFIG}" "${AWS_SSH_USER}@${AWS_SSH_HOST}:${REMOTE_DIR}/config.json"
+          ssh ${SSH_OPTS} -p "${PORT}" "${AWS_SSH_USER}@${AWS_SSH_HOST}" "chmod 644 '${REMOTE_DIR}/config.json'"
+          rm -f "${TMP_CONFIG}"
+
+      - name: Restart active container
+        run: |
+          PORT="${AWS_SSH_PORT:-22}"
+          REMOTE_DIR="${APP_DIR}"
+          APP="${APP_NAME}"
+          ssh ${SSH_OPTS} -p "${PORT}" "${AWS_SSH_USER}@${AWS_SSH_HOST}" "
+            set -Eeuo pipefail
+            active=\$(cat '${REMOTE_DIR}/active_color')
+            docker restart \"${APP}-\${active}\"
+            sleep 5
+            state=\$(docker inspect -f '{{.State.Status}}' \"${APP}-\${active}\")
+            if [ \"\${state}\" != running ]; then
+              docker logs --tail 50 \"${APP}-\${active}\" || true
+              echo \"container ${APP}-\${active} is \${state} after config reload\" >&2
+              exit 1
+            fi
+
+            # A restarted container comes back on a different address, and nginx resolved the
+            # upstream name once, when it loaded its configuration. Without this reload the proxy
+            # keeps dialling an address nothing answers on, while the container itself looks
+            # perfectly healthy and this job stays green.
+            if docker ps --format '{{.Names}}' | grep -qx '${PROXY_NAME}'; then
+              docker exec '${PROXY_NAME}' nginx -s reload
+            fi
+          "

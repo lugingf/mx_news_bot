@@ -53,6 +53,7 @@ func DefaultRegistry() *Registry {
 		StandingsBuilder{},
 		EventUpcomingBuilder{},
 		EventScheduleBuilder{},
+		RenderedPostBuilder{},
 	)
 }
 

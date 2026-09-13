@@ -11,7 +11,8 @@
     "base_url": "http://lap_vision:8686",
     "internal_token": "SHARED_INTERNAL_TOKEN",
     "request_timeout": "15s",
-    "webhook_secret": "HMAC_SECRET_SHARED_WITH_LAP_VISION"
+    "webhook_secret": "HMAC_SECRET_SHARED_WITH_LAP_VISION",
+    "_webhook_secret": "Общий секрет с lap_vision (publications.transport.secret). Пустой = приёмник отвергает всё: неподписанный запрос не должен проходить."
   },
   "publishing": {
     "telegram": {
@@ -29,7 +30,9 @@
       "enabled": false,
       "access_token": "",
       "account_id": ""
-    }
+    },
+    "_channels": "Каналы доставки живут в таблице delivery_channels и настраиваются из админки lap_vision (Публикации → Каналы доставки), а не здесь. Отбор — тремя фильтрами: disciplines, championships, post_types. Пустой список = не сужает, фильтры складываются по AND. Мото-канал: disciplines '{moto}'. Только Supercross: championships '{AMA Supercross}'. Тестовый канал: все три пустые — он видит всё. Адресат — @имя или числовой chat id вида -1004362440814.",
+    "_telegram": "enabled включает отправку; chat_id — запасной адресат, если в delivery_channels ничего нет."
   },
   "metrics": {
     "port": "9595",

@@ -2,6 +2,8 @@ package models
 
 import (
 	"time"
+
+	"github.com/lib/pq"
 )
 
 // The racing types below mirror the lap_vision /moto/* responses. The bot owns no racing data any
@@ -111,4 +113,23 @@ type DeliveryChannel struct {
 	Channel string `db:"channel"`
 	Target  string `db:"target"`
 	Enabled bool   `db:"enabled"`
+}
+
+// DeliveryChannelRecord is the whole row, as the administration screen edits it. The dispatcher
+// works with DeliveryChannel instead: it has already been told which channels match, and the
+// filters that decided it are none of its business.
+type DeliveryChannelRecord struct {
+	ID      int64  `db:"id"`
+	Channel string `db:"channel_type"`
+	Target  string `db:"target"`
+	Title   string `db:"title"`
+	Enabled bool   `db:"enabled"`
+
+	// Rehearsal channels take rehearsal posts and nothing else.
+	Rehearsal bool `db:"rehearsal"`
+
+	// The filters. An empty list means the channel does not narrow by that dimension.
+	Disciplines   pq.StringArray `db:"disciplines"`
+	Championships pq.StringArray `db:"championships"`
+	PostTypes     pq.StringArray `db:"post_types"`
 }

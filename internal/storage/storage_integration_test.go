@@ -13,6 +13,7 @@ import (
 
 	"mx_news_bot/internal/domain"
 	"mx_news_bot/internal/models"
+	"mx_news_bot/internal/publishing/contract"
 )
 
 const defaultIntegrationDSN = "host=localhost port=6444 user=mx password=mxpassword dbname=mx sslmode=disable"
@@ -126,7 +127,7 @@ RETURNING id`, "@it_"+t.Name())
 
 	// The type filter is what keeps a channel that subscribed to standings from receiving
 	// schedules.
-	channels, err := repo.DeliveryChannelsFor(ctx, "standings")
+	channels, err := repo.DeliveryChannelsFor(ctx, contract.Match{EventType: "standings", Discipline: "moto"})
 	if err != nil {
 		t.Fatalf("DeliveryChannelsFor: %v", err)
 	}
@@ -146,7 +147,7 @@ RETURNING id`, "@it_"+t.Name())
 		t.Fatal("the seeded channel was not returned for its own event type")
 	}
 
-	other, err := repo.DeliveryChannelsFor(ctx, "race_result")
+	other, err := repo.DeliveryChannelsFor(ctx, contract.Match{EventType: "race_result", Discipline: "moto"})
 	if err != nil {
 		t.Fatalf("DeliveryChannelsFor other type: %v", err)
 	}
@@ -154,6 +155,98 @@ RETURNING id`, "@it_"+t.Name())
 		if c.ID == channelID {
 			t.Error("a channel subscribed to standings must not receive race_result")
 		}
+	}
+
+	// A channel narrowed to one championship must not receive another, even within its own
+	// discipline: Supercross, Pro Motocross and SMX are all moto.
+	var motoChannelID int64
+	err = repo.db.Get(&motoChannelID, `
+INSERT INTO delivery_channels (channel_type, target, title, enabled, disciplines, championships, post_types)
+VALUES ('telegram', $1, 'integration moto', TRUE, ARRAY['moto'], ARRAY['AMA Supercross'], ARRAY['event_result'])
+RETURNING id`, "@it_moto_"+t.Name())
+	if err != nil {
+		t.Fatalf("seed moto channel: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = repo.db.Exec(`DELETE FROM delivery_channels WHERE id = $1`, motoChannelID)
+	})
+
+	// A rehearsal reaches only a rehearsal channel, and a live post never reaches one: that is what
+	// lets a new kind of post be tried out while the live channels keep working.
+	var rehearsalChannelID int64
+	err = repo.db.Get(&rehearsalChannelID, `
+INSERT INTO delivery_channels (channel_type, target, title, enabled, rehearsal)
+VALUES ('telegram', $1, 'integration rehearsal', TRUE, TRUE)
+RETURNING id`, "@it_rehearsal_"+t.Name())
+	if err != nil {
+		t.Fatalf("seed rehearsal channel: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = repo.db.Exec(`DELETE FROM delivery_channels WHERE id = $1`, rehearsalChannelID)
+	})
+
+	matches := repo.DeliveryChannelsFor
+	own := contract.Match{
+		EventType: "rendered_post", Discipline: "moto",
+		Championship: "AMA Supercross", PostType: "event_result",
+	}
+
+	rejected := map[string]contract.Match{
+		"another discipline":   {EventType: "rendered_post", Discipline: "f1", Championship: "Formula 1", PostType: "event_result"},
+		"another championship": {EventType: "rendered_post", Discipline: "moto", Championship: "AMA Pro Motocross", PostType: "event_result"},
+		"another post type":    {EventType: "rendered_post", Discipline: "moto", Championship: "AMA Supercross", PostType: "event_preview"},
+	}
+	for name, match := range rejected {
+		channels, err := matches(ctx, match)
+		if err != nil {
+			t.Fatalf("DeliveryChannelsFor %s: %v", name, err)
+		}
+		for _, c := range channels {
+			if c.ID == motoChannelID {
+				t.Errorf("the channel received a post of %s", name)
+			}
+		}
+	}
+
+	rehearsals, err := matches(ctx, contract.Match{EventType: "rendered_post", Rehearsal: true})
+	if err != nil {
+		t.Fatalf("DeliveryChannelsFor rehearsal: %v", err)
+	}
+	foundRehearsal := false
+	for _, c := range rehearsals {
+		if c.ID == motoChannelID {
+			t.Error("a live channel received a rehearsal")
+		}
+		if c.ID == rehearsalChannelID {
+			foundRehearsal = true
+		}
+	}
+	if !foundRehearsal {
+		t.Error("the rehearsal channel did not receive a rehearsal")
+	}
+
+	live, err := matches(ctx, contract.Match{EventType: "rendered_post"})
+	if err != nil {
+		t.Fatalf("DeliveryChannelsFor live: %v", err)
+	}
+	for _, c := range live {
+		if c.ID == rehearsalChannelID {
+			t.Error("the rehearsal channel received a live post")
+		}
+	}
+
+	motoChannels, err := matches(ctx, own)
+	if err != nil {
+		t.Fatalf("DeliveryChannelsFor own: %v", err)
+	}
+	foundMoto := false
+	for _, c := range motoChannels {
+		if c.ID == motoChannelID {
+			foundMoto = true
+		}
+	}
+	if !foundMoto {
+		t.Error("the channel was not returned for the posts it is registered for")
 	}
 
 	payload := json.RawMessage(`{"class":"450SX"}`)

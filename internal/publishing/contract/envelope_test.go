@@ -79,3 +79,39 @@ func TestSignatureIsPrefixed(t *testing.T) {
 		t.Errorf("Sign returned %q, want a sha256= prefix and 64 hex characters", got)
 	}
 }
+
+// The sender keeps its own copy of this contract: two repositories building into two images
+// cannot share a module through a replace directive. This is the same JSON pinned on the
+// lap_vision side, so a field renamed there fails here.
+func TestRenderedPostGoldenJSON(t *testing.T) {
+	const wire = `{"id":"abc123","type":"rendered_post","version":1,"occurred_at":"2026-09-13T12:00:00Z","payload":{"discipline":"moto","post_type":"event_result","championship":"FIM Motocross World Championship","title":"MXGP of China · MXGP","subtitle":"FIM Motocross World Championship, этап 18","lines":["Победа: Jeffrey Herlings"],"table":{"header":["#","Гонщик"],"rows":[["1","Jeffrey Herlings"]]},"tags":["moto"],"image":{"layers":[{"kind":"rider","key":"Jeffrey Herlings"}],"title":"MXGP of China","stats":[{"label":"Jeffrey Herlings","value":"50"}]}}}`
+
+	var envelope Envelope
+	if err := json.Unmarshal([]byte(wire), &envelope); err != nil {
+		t.Fatalf("decode envelope: %v", err)
+	}
+	if envelope.Type != TypeRenderedPost || envelope.Version != Version || envelope.ID != "abc123" {
+		t.Fatalf("unexpected envelope: %+v", envelope)
+	}
+
+	var payload RenderedPostPayload
+	if err := json.Unmarshal(envelope.Payload, &payload); err != nil {
+		t.Fatalf("decode payload: %v", err)
+	}
+	if payload.Title != "MXGP of China · MXGP" || payload.Discipline != "moto" {
+		t.Fatalf("unexpected payload: %+v", payload)
+	}
+	// The championship is what a channel narrower than a whole discipline is routed by.
+	if payload.Championship != "FIM Motocross World Championship" {
+		t.Fatalf("championship = %q", payload.Championship)
+	}
+	if payload.Table == nil || len(payload.Table.Rows) != 1 || payload.Table.Rows[0][1] != "Jeffrey Herlings" {
+		t.Fatalf("unexpected table: %+v", payload.Table)
+	}
+	if payload.Image == nil || len(payload.Image.Layers) != 1 || payload.Image.Layers[0].Kind != "rider" {
+		t.Fatalf("unexpected image: %+v", payload.Image)
+	}
+	if len(payload.Image.Stats) != 1 || payload.Image.Stats[0].Value != "50" {
+		t.Fatalf("unexpected stats: %+v", payload.Image.Stats)
+	}
+}

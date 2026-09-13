@@ -46,7 +46,7 @@ func (s *stubStore) ClaimPublication(_ context.Context, id, _ string, _ []byte) 
 	return true, nil
 }
 
-func (s *stubStore) DeliveryChannelsFor(context.Context, string) ([]models.DeliveryChannel, error) {
+func (s *stubStore) DeliveryChannelsFor(context.Context, contract.Match) ([]models.DeliveryChannel, error) {
 	return []models.DeliveryChannel{{ID: 1, Channel: "telegram", Target: "@chan", Enabled: true}}, nil
 }
 
@@ -110,7 +110,7 @@ func testHandler(t *testing.T, secretValue string) (*Handler, *countingPublisher
 	d := dispatcher.New(&stubStore{}, builder.DefaultRegistry(), log)
 	d.Register(render.NewTelegram(), publisher)
 
-	return New(secretValue, d, log), publisher
+	return New(secretValue, d, nil, log), publisher
 }
 
 func validBody(t *testing.T) []byte {

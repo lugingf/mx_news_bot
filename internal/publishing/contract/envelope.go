@@ -29,6 +29,11 @@ const (
 	TypeStandings     = "standings"
 	TypeEventUpcoming = "event_upcoming"
 	TypeEventSchedule = "event_schedule"
+
+	// TypeRenderedPost carries a post lap_vision has already composed: it decided the wording,
+	// the table and the hashtags. The bot still does the last mile per channel — escaping,
+	// length limits, whether a table survives — because that is channel mechanics, not content.
+	TypeRenderedPost = "rendered_post"
 )
 
 // Envelope wraps every publication request. The payload is complete: the receiver renders from
@@ -80,6 +85,51 @@ type EventUpcomingPayload struct {
 type EventSchedulePayload struct {
 	Championship models.Championship `json:"championship"`
 	Events       []models.Event      `json:"events"`
+}
+
+// RenderedPostPayload is a finished post. Anything the sender leaves empty simply does not
+// appear: a post with no table is a post with no table, not an error.
+type RenderedPostPayload struct {
+	Discipline string `json:"discipline"`
+	PostType   string `json:"post_type"`
+	// Championship is what a channel routes by when the discipline is too coarse: Supercross,
+	// Pro Motocross and SMX are all moto, and a channel may be meant for only one of them.
+	Championship string `json:"championship,omitempty"`
+	// Rehearsal marks a post sent to be looked at rather than published. It reaches only the
+	// channels registered as rehearsal channels.
+	Rehearsal bool           `json:"rehearsal,omitempty"`
+	Title     string         `json:"title"`
+	Subtitle  string         `json:"subtitle"`
+	Lines     []string       `json:"lines,omitempty"`
+	Table     *RenderedTable `json:"table,omitempty"`
+	Tags      []string       `json:"tags,omitempty"`
+	Link      string         `json:"link,omitempty"`
+	Image     *RenderedImage `json:"image,omitempty"`
+}
+
+type RenderedTable struct {
+	Header []string   `json:"header"`
+	Rows   [][]string `json:"rows"`
+}
+
+// RenderedImage describes a picture rather than carrying one. The layers say what it should show;
+// whoever owns the media decides which files that means. A URL short-circuits all of it.
+type RenderedImage struct {
+	URL      string          `json:"url,omitempty"`
+	Layers   []RenderedLayer `json:"layers,omitempty"`
+	Title    string          `json:"title,omitempty"`
+	Subtitle string          `json:"subtitle,omitempty"`
+	Stats    []RenderedStat  `json:"stats,omitempty"`
+}
+
+type RenderedLayer struct {
+	Kind string `json:"kind"`
+	Key  string `json:"key"`
+}
+
+type RenderedStat struct {
+	Label string `json:"label"`
+	Value string `json:"value"`
 }
 
 // Sign returns the value of the signature header for a body.
