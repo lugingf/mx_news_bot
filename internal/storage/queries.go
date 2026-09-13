@@ -51,14 +51,36 @@ const (
 
 	sqlInsertDeliveryChannel = `
 		INSERT INTO delivery_channels (channel_type, target, title, enabled, rehearsal, disciplines, championships, post_types)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		VALUES ($1, $2, $3, $4, $5, COALESCE($6::text[], '{}'), COALESCE($7::text[], '{}'), COALESCE($8::text[], '{}'))
+		RETURNING id, channel_type, target, title, enabled, rehearsal, disciplines, championships, post_types
+	`
+
+	// The declared form of a channel. A deployment describes its channels in the config, and this
+	// writes that description into the table on every start — so the two never drift, and nobody
+	// has to remember which INSERT was run where.
+	// COALESCE on the filters: a list nobody set arrives as NULL, and these columns are NOT NULL.
+	// An unset filter means "everything", which is the empty array, so it is written as one.
+	sqlUpsertDeliveryChannelByTarget = `
+		INSERT INTO delivery_channels (channel_type, target, title, enabled, rehearsal, disciplines, championships, post_types)
+		VALUES ($1, $2, $3, $4, $5, COALESCE($6::text[], '{}'), COALESCE($7::text[], '{}'), COALESCE($8::text[], '{}'))
+		ON CONFLICT (channel_type, target) DO UPDATE
+		SET title         = EXCLUDED.title,
+		    enabled       = EXCLUDED.enabled,
+		    rehearsal     = EXCLUDED.rehearsal,
+		    disciplines   = EXCLUDED.disciplines,
+		    championships = EXCLUDED.championships,
+		    post_types    = EXCLUDED.post_types,
+		    updated_at    = now()
 		RETURNING id, channel_type, target, title, enabled, rehearsal, disciplines, championships, post_types
 	`
 
 	sqlUpdateDeliveryChannel = `
 		UPDATE delivery_channels
 		SET target = $2, title = $3, enabled = $4, rehearsal = $5,
-		    disciplines = $6, championships = $7, post_types = $8, updated_at = now()
+		    disciplines   = COALESCE($6::text[], '{}'),
+		    championships = COALESCE($7::text[], '{}'),
+		    post_types    = COALESCE($8::text[], '{}'),
+		    updated_at    = now()
 		WHERE id = $1
 		RETURNING id, channel_type, target, title, enabled, rehearsal, disciplines, championships, post_types
 	`

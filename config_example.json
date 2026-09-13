@@ -31,8 +31,44 @@
       "access_token": "",
       "account_id": ""
     },
-    "_channels": "Каналы доставки живут в таблице delivery_channels и настраиваются из админки lap_vision (Публикации → Каналы доставки), а не здесь. Отбор — тремя фильтрами: disciplines, championships, post_types; пустой список = не сужает, фильтры складываются по AND. Отдельный флаг rehearsal: такой канал получает ТОЛЬКО репетиции (кнопка «В тест»), а боевые каналы репетиции не получают. Адресат — @имя или числовой chat id вида -1004362440814. Бот должен быть админом канала, иначе отправка падает.",
-    "_telegram": "enabled включает отправку в Telegram. chat_id — запасной адресат на случай, если в delivery_channels нет ни одной строки; при настроенных каналах не используется."
+    "_channels": "Каналы доставки. Что здесь написано, то и будет в таблице delivery_channels — синхронизация на каждом старте, руками ничего вставлять не надо. Отбор тремя фильтрами: disciplines, championships, post_types; пустой список = не сужает, складываются по AND. rehearsal: true — канал получает ТОЛЬКО репетиции (кнопка «В тест» в админке), боевые каналы репетиции не получают. target — @имя или числовой chat id. Бот должен быть админом канала. Канал, который есть в таблице, но не описан здесь, не трогается — его можно завести из админки под опыт.",
+    "_telegram": "enabled включает отправку в Telegram. chat_id — запасной адресат на случай, если в delivery_channels нет ни одной строки; при настроенных каналах не используется.",
+    "channels": [
+      {
+        "channel": "telegram",
+        "target": "-1004362440814",
+        "title": "TestChannel",
+        "enabled": true,
+        "rehearsal": true,
+        "disciplines": [],
+        "championships": [],
+        "post_types": []
+      },
+      {
+        "channel": "telegram",
+        "target": "-1004331483764",
+        "title": "Racing Hub: Moto",
+        "enabled": true,
+        "rehearsal": false,
+        "disciplines": [
+          "moto"
+        ],
+        "championships": [],
+        "post_types": []
+      },
+      {
+        "channel": "telegram",
+        "target": "-1004350283613",
+        "title": "Racing Hub: F1",
+        "enabled": true,
+        "rehearsal": false,
+        "disciplines": [
+          "f1"
+        ],
+        "championships": [],
+        "post_types": []
+      }
+    ]
   },
   "metrics": {
     "port": "9595",

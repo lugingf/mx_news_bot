@@ -291,3 +291,47 @@ RETURNING id`, "@it_rehearsal_"+t.Name())
 		t.Errorf("attempts = %d, want 2", attempts)
 	}
 }
+
+// The configuration is what a deployment's channels are described by, and DeclareDeliveryChannel is
+// what makes the table agree with it. Keyed by where the channel posts, so a renamed channel is the
+// same channel rather than a second one.
+func TestIntegrationDeclareDeliveryChannelIsIdempotent(t *testing.T) {
+	repo := testRepo(t)
+	ctx := context.Background()
+	target := "@it_declared_" + t.Name()
+
+	t.Cleanup(func() {
+		_, _ = repo.db.Exec(`DELETE FROM delivery_channels WHERE target = $1`, target)
+	})
+
+	first, err := repo.DeclareDeliveryChannel(ctx, models.DeliveryChannelRecord{
+		Channel: "telegram", Target: target, Title: "Moto", Enabled: true,
+		Disciplines: []string{"moto"},
+	})
+	if err != nil {
+		t.Fatalf("DeclareDeliveryChannel: %v", err)
+	}
+
+	// The same target declared again is the same row, brought in line with what the config now
+	// says rather than inserted a second time.
+	second, err := repo.DeclareDeliveryChannel(ctx, models.DeliveryChannelRecord{
+		Channel: "telegram", Target: target, Title: "Moto renamed", Enabled: false, Rehearsal: true,
+		Disciplines: []string{"f1"}, Championships: []string{"Formula 1"},
+	})
+	if err != nil {
+		t.Fatalf("DeclareDeliveryChannel twice: %v", err)
+	}
+
+	if second.ID != first.ID {
+		t.Errorf("a second declaration made a new row: %d then %d", first.ID, second.ID)
+	}
+	if second.Title != "Moto renamed" || second.Enabled || !second.Rehearsal {
+		t.Errorf("the row was not brought in line with the config: %+v", second)
+	}
+	if len(second.Disciplines) != 1 || second.Disciplines[0] != "f1" {
+		t.Errorf("disciplines = %v, want [f1]", second.Disciplines)
+	}
+	if len(second.Championships) != 1 || second.Championships[0] != "Formula 1" {
+		t.Errorf("championships = %v, want [Formula 1]", second.Championships)
+	}
+}

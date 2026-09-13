@@ -46,6 +46,32 @@ type Publishing struct {
 	Telegram  *TelegramChannel  `json:"telegram"`
 	Twitter   *TwitterChannel   `json:"twitter"`
 	Instagram *InstagramChannel `json:"instagram"`
+
+	// Channels are the delivery destinations, declared here rather than inserted by hand. Every
+	// one listed is written into delivery_channels on startup, so the config is what a deployment
+	// is described by and the table is only where it ends up. A channel that is in the table but
+	// not here is left alone: the administration screen can still add one for an experiment.
+	Channels []DeliveryChannel `json:"channels"`
+}
+
+// DeliveryChannel is one destination and the posts it accepts.
+//
+// The three filters are lists, an empty one meaning "everything", and they are combined with AND:
+// disciplines ["moto"] with championships ["AMA Supercross"] is a Supercross channel. Rehearsal
+// channels take rehearsal posts and nothing else, and a live channel never takes one.
+type DeliveryChannel struct {
+	// Channel: "telegram", "twitter" or "instagram".
+	Channel string `json:"channel"`
+	// Target is the destination as the channel names it: for Telegram either a public @name or a
+	// numeric chat id such as -1004362440814, which is the only address a private channel has.
+	Target  string `json:"target"`
+	Title   string `json:"title"`
+	Enabled bool   `json:"enabled"`
+
+	Rehearsal     bool     `json:"rehearsal"`
+	Disciplines   []string `json:"disciplines"`
+	Championships []string `json:"championships"`
+	PostTypes     []string `json:"post_types"`
 }
 
 // TelegramChannel posts through the bot token already configured under app.bot; only the

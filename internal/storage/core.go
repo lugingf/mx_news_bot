@@ -96,6 +96,21 @@ func (r *Repository) CreateDeliveryChannel(ctx context.Context, channel models.D
 	return created, nil
 }
 
+// DeclareDeliveryChannel writes a channel as the configuration describes it, creating it or
+// bringing an existing row back in line. It is keyed by where the channel posts, because that is
+// what identifies a destination — a renamed channel is the same channel.
+func (r *Repository) DeclareDeliveryChannel(ctx context.Context, channel models.DeliveryChannelRecord) (models.DeliveryChannelRecord, error) {
+	var declared models.DeliveryChannelRecord
+	err := r.db.GetContext(ctx, &declared, sqlUpsertDeliveryChannelByTarget,
+		channel.Channel, channel.Target, channel.Title, channel.Enabled, channel.Rehearsal,
+		pq.Array(channel.Disciplines), pq.Array(channel.Championships), pq.Array(channel.PostTypes))
+	if err != nil {
+		return models.DeliveryChannelRecord{}, errors.Wrap(err, "storage: declare delivery channel")
+	}
+
+	return declared, nil
+}
+
 // UpdateDeliveryChannel rewrites everything but the channel type: moving a row from Telegram to
 // Twitter would keep the delivery history of a post that never went there.
 func (r *Repository) UpdateDeliveryChannel(ctx context.Context, channel models.DeliveryChannelRecord) (models.DeliveryChannelRecord, error) {

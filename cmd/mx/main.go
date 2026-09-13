@@ -18,6 +18,7 @@ import (
 	"mx_news_bot/config"
 	"mx_news_bot/internal/adapters/lapvision"
 	"mx_news_bot/internal/bot"
+	"mx_news_bot/internal/publishing"
 	"mx_news_bot/internal/publishing/builder"
 	"mx_news_bot/internal/publishing/channel"
 	"mx_news_bot/internal/publishing/contract"
@@ -62,6 +63,16 @@ func main() {
 	results := lapvision.New(cfg.LapVision.BaseURL, cfg.LapVision.InternalToken, cfg.LapVision.RequestTimeout)
 	application := service.NewApp(results, repository, logger)
 	botClient := bot.New(&cfg.App.Bot, application, logger)
+
+	// The channels a deployment posts to are described in its config, and the table is brought in
+	// line with that description here — so a new channel is a config change and a deploy, not an
+	// INSERT somebody has to remember to run.
+	if cfg.Publishing != nil {
+		if err := publishing.DeclareChannels(ctx, repository, cfg.Publishing.Channels, logger); err != nil {
+			logger.Error("cannot declare delivery channels", "err", err)
+			os.Exit(1)
+		}
+	}
 
 	// The dispatcher fans one publication out to every registered channel. Telegram posts
 	// through the same bot client that serves user requests; the other two are stubs until
