@@ -26,6 +26,10 @@ jobs:
       APP_NAME: ${{ vars.APP_NAME || 'mx_news_bot' }}
       APP_DIR: ${{ vars.APP_DIR || '/opt/mx_news_bot' }}
       PROXY_NAME: ${{ vars.PROXY_NAME || 'mx_news_bot-proxy' }}
+      # The one path through the proxy that can be probed without impersonating Telegram or
+      # signing a request: the webhook needs Telegram, publications and channels are HMAC-signed,
+      # and everything else the proxy answers with 404 by design.
+      METRICS_PATH: ${{ vars.METRICS_PATH || '/metrics-mx' }}
 
       # IdentitiesOnly is deliberately absent: the deploy key lives in the ssh-agent and no
       # IdentityFile is written, so it would make ssh offer nothing at all.
@@ -89,4 +93,29 @@ jobs:
             if docker ps --format '{{.Names}}' | grep -qx '${PROXY_NAME}'; then
               docker exec '${PROXY_NAME}' nginx -s reload
             fi
+          "
+
+      # The container answering on its own port proves nothing about the path lap_vision takes to
+      # reach it. A restarted container comes back on a new address, and an nginx that did not
+      # re-resolve keeps dialling the old one: the bot is healthy, this job is green, and every
+      # publication is a 502. This is the check that turns that into a red workflow.
+      - name: Verify the bot through the proxy
+        run: |
+          PORT="${AWS_SSH_PORT:-22}"
+          ssh ${SSH_OPTS} -p "${PORT}" "${AWS_SSH_USER}@${AWS_SSH_HOST}" "
+            set -Eeuo pipefail
+            if ! docker ps --format '{{.Names}}' | grep -qx '${PROXY_NAME}'; then
+              echo 'proxy ${PROXY_NAME} is not running, nothing to check through' >&2
+              exit 0
+            fi
+            for _ in \$(seq 1 15); do
+              if docker exec '${PROXY_NAME}' wget -q -O /dev/null 'http://127.0.0.1${METRICS_PATH}'; then
+                echo 'the bot answers through ${PROXY_NAME}'
+                exit 0
+              fi
+              sleep 2
+            done
+            docker logs --tail 50 '${PROXY_NAME}' 2>&1 || true
+            echo 'the bot does not answer through ${PROXY_NAME} after the config reload' >&2
+            exit 1
           "
