@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
+	"time"
 
 	"mx_news_bot/internal/models"
 	"mx_news_bot/internal/publishing/builder"
@@ -39,15 +40,23 @@ type Dispatcher struct {
 	builders   *builder.Registry
 	renderers  map[string]render.Renderer
 	publishers map[string]channel.Publisher
+	pace       *pacer
 	log        *slog.Logger
 }
 
 func New(store Store, builders *builder.Registry, log *slog.Logger) *Dispatcher {
+	return NewWithPause(store, builders, 0, log)
+}
+
+// NewWithPause is New with the gap between two messages to the same destination spelled out. Zero
+// takes the default, which is what a deployment that has not thought about it should get.
+func NewWithPause(store Store, builders *builder.Registry, pause time.Duration, log *slog.Logger) *Dispatcher {
 	return &Dispatcher{
 		store:      store,
 		builders:   builders,
 		renderers:  make(map[string]render.Renderer),
 		publishers: make(map[string]channel.Publisher),
+		pace:       newPacer(pause),
 		log:        log,
 	}
 }
@@ -136,6 +145,15 @@ func (d *Dispatcher) deliver(ctx context.Context, target models.DeliveryChannel,
 		d.log.Error("render failed", "channel", target.Channel, "err", err)
 		return "failed", "", err
 	}
+
+	// Nothing reaches a destination without waiting its turn — including a retry, which is the
+	// case that makes a burst out of an outage.
+	release, err := d.pace.reserve(ctx, paceKey(target.Channel, target.Target))
+	if err != nil {
+		d.log.Error("gave up waiting for the channel", "channel", target.Channel, "err", err)
+		return "failed", "", err
+	}
+	defer release()
 
 	receipt, err := publisher.Publish(ctx, target.Target, message)
 	if errors.Is(err, channel.ErrNotConfigured) {

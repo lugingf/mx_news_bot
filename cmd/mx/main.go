@@ -77,7 +77,7 @@ func main() {
 	// The dispatcher fans one publication out to every registered channel. Telegram posts
 	// through the same bot client that serves user requests; the other two are stubs until
 	// their APIs are wired, and report themselves as not configured.
-	publisher := dispatcher.New(repository, builder.DefaultRegistry(), logger)
+	publisher := dispatcher.NewWithPause(repository, builder.DefaultRegistry(), cfg.Publishing.ChannelPause, logger)
 	publisher.Register(render.NewTelegram(), channel.NewTelegram(botClient.Client))
 	publisher.Register(render.NewTwitter(), channel.NewTwitter(cfg.Publishing.Twitter.Enabled))
 	publisher.Register(render.NewInstagram(), channel.NewInstagram(cfg.Publishing.Instagram.Enabled))

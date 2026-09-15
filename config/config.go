@@ -52,6 +52,11 @@ type Publishing struct {
 	// is described by and the table is only where it ends up. A channel that is in the table but
 	// not here is left alone: the administration screen can still add one for an experiment.
 	Channels []DeliveryChannel `json:"channels"`
+
+	// ChannelPause is the least time between two messages to the same destination, retries
+	// included. Telegram counts per chat and answers 429 to a burst, and the results of one round
+	// finish within milliseconds of each other. Zero takes the built-in default.
+	ChannelPause time.Duration `json:"channel_pause"`
 }
 
 // DeliveryChannel is one destination and the posts it accepts.

@@ -15,6 +15,8 @@
     "_webhook_secret": "Общий секрет с lap_vision (publications.transport.secret). Пустой = приёмник отвергает всё: неподписанный запрос не должен проходить."
   },
   "publishing": {
+    "_channel_pause": "Минимум между двумя сообщениями в один и тот же канал, включая ретраи. Telegram считает на чат и отвечает 429 на всплеск. Пусто — значение по умолчанию.",
+    "channel_pause": "3s",
     "telegram": {
       "enabled": true,
       "chat_id": ""
