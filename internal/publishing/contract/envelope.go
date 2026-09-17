@@ -95,6 +95,9 @@ type RenderedPostPayload struct {
 	// Championship is what a channel routes by when the discipline is too coarse: Supercross,
 	// Pro Motocross and SMX are all moto, and a channel may be meant for only one of them.
 	Championship string `json:"championship,omitempty"`
+	// Team is whose colours the post is in. The sender draws the picture with them; a receiver
+	// that draws its own may use it the same way.
+	Team string `json:"team,omitempty"`
 	// Rehearsal marks a post sent to be looked at rather than published. It reaches only the
 	// channels registered as rehearsal channels.
 	Rehearsal bool           `json:"rehearsal,omitempty"`
@@ -120,11 +123,18 @@ type RenderedImage struct {
 	Title    string          `json:"title,omitempty"`
 	Subtitle string          `json:"subtitle,omitempty"`
 	Stats    []RenderedStat  `json:"stats,omitempty"`
+	// TextTone is how the title has to be drawn over the background: "light" is white letters
+	// with a dark edge, "dark" is black letters with a light one. It comes from the background
+	// picture itself, which is the only thing that knows what it can carry.
+	TextTone string `json:"text_tone,omitempty"`
 }
 
 type RenderedLayer struct {
 	Kind string `json:"kind"`
 	Key  string `json:"key"`
+	// URL is the file the sender has filed for this subject, when it has one. It is an answer
+	// rather than an instruction: empty means nobody uploaded a picture for it yet.
+	URL string `json:"url,omitempty"`
 }
 
 type RenderedStat struct {
