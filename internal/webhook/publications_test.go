@@ -110,7 +110,7 @@ func testHandler(t *testing.T, secretValue string) (*Handler, *countingPublisher
 	d := dispatcher.New(&stubStore{}, builder.DefaultRegistry(), log)
 	d.Register(render.NewTelegram(), publisher)
 
-	return New(secretValue, d, nil, log), publisher
+	return New(secretValue, d, nil, nil, log), publisher
 }
 
 func validBody(t *testing.T) []byte {

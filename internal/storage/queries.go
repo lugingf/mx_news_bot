@@ -115,4 +115,16 @@ const (
 		FROM publication_deliveries
 		WHERE event_id = $1 AND status = 'delivered'
 	`
+
+	sqlGetPublication = `
+		SELECT event_id, event_type, payload
+		FROM publications
+		WHERE event_id = $1
+	`
+
+	sqlGetDeliveryChannel = `
+		SELECT id, channel_type AS channel, target, enabled
+		FROM delivery_channels
+		WHERE id = $1
+	`
 )

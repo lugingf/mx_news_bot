@@ -161,6 +161,36 @@ func (r *Repository) ClaimPublication(ctx context.Context, eventID, eventType st
 	return affected > 0, nil
 }
 
+// GetPublication returns a publication exactly as it was received, so it can be sent again
+// without asking lap_vision to rebuild it.
+func (r *Repository) GetPublication(ctx context.Context, eventID string) (models.PublicationRecord, error) {
+	var record models.PublicationRecord
+	err := r.db.GetContext(ctx, &record, sqlGetPublication, eventID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return models.PublicationRecord{}, domain.ErrNotFound
+	}
+	if err != nil {
+		return models.PublicationRecord{}, errors.Wrap(err, "storage: get publication")
+	}
+
+	return record, nil
+}
+
+// GetDeliveryChannel looks up one channel by id, disabled or not: an administrator resending to a
+// channel is choosing it on purpose, so a switched-off channel is not hidden from that choice.
+func (r *Repository) GetDeliveryChannel(ctx context.Context, id int64) (models.DeliveryChannel, error) {
+	var channel models.DeliveryChannel
+	err := r.db.GetContext(ctx, &channel, sqlGetDeliveryChannel, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return models.DeliveryChannel{}, domain.ErrChannelNotFound
+	}
+	if err != nil {
+		return models.DeliveryChannel{}, errors.Wrap(err, "storage: get delivery channel")
+	}
+
+	return channel, nil
+}
+
 func (r *Repository) DeliveredChannelIDs(ctx context.Context, eventID string) (map[int64]struct{}, error) {
 	var ids []int64
 	if err := r.db.SelectContext(ctx, &ids, sqlDeliveredChannels, eventID); err != nil {

@@ -130,6 +130,24 @@ func (d *Dispatcher) Dispatch(ctx context.Context, envelope contract.Envelope) (
 	return result, nil
 }
 
+// Redeliver builds the post the same way Dispatch does and sends it to exactly one channel,
+// skipping DeliveryChannelsFor's filters and the already-delivered check: an administrator
+// choosing the destination by hand is asking for this event again, on purpose, whether or not it
+// matches the channel's own filters or has already gone out there.
+func (d *Dispatcher) Redeliver(ctx context.Context, envelope contract.Envelope, target models.DeliveryChannel) (string, string, error) {
+	post, err := d.builders.Build(envelope)
+	if err != nil {
+		return "", "", err
+	}
+
+	status, ref, deliverErr := d.deliver(ctx, target, post)
+	if markErr := d.store.MarkDelivery(ctx, envelope.ID, target.ID, status, errText(deliverErr), ref); markErr != nil {
+		d.log.Error("record delivery failed", "event_id", envelope.ID, "channel", target.Channel, "err", markErr)
+	}
+
+	return status, ref, deliverErr
+}
+
 func (d *Dispatcher) deliver(ctx context.Context, target models.DeliveryChannel, post contentmodel.Post) (string, string, error) {
 	renderer, ok := d.renderers[target.Channel]
 	if !ok {

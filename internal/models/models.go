@@ -115,6 +115,14 @@ type DeliveryChannel struct {
 	Enabled bool   `db:"enabled"`
 }
 
+// PublicationRecord is a publication as it was originally received, kept so it can be sent again
+// without asking lap_vision to rebuild it.
+type PublicationRecord struct {
+	EventID   string `db:"event_id"`
+	EventType string `db:"event_type"`
+	Payload   []byte `db:"payload"`
+}
+
 // DeliveryChannelRecord is the whole row, as the administration screen edits it. The dispatcher
 // works with DeliveryChannel instead: it has already been told which channels match, and the
 // filters that decided it are none of its business.

@@ -74,15 +74,15 @@ func main() {
 		}
 	}
 
-	// The dispatcher fans one publication out to every registered channel. Telegram posts
-	// through the same bot client that serves user requests; the other two are stubs until
-	// their APIs are wired, and report themselves as not configured.
+	// The dispatcher fans one publication out to every registered channel. Telegram and Instagram
+	// post through their own APIs; Twitter is a stub until its API is wired, and reports itself
+	// as not configured.
 	publisher := dispatcher.NewWithPause(repository, builder.DefaultRegistry(), cfg.Publishing.ChannelPause, logger)
 	publisher.Register(render.NewTelegram(), channel.NewTelegram(botClient.Client))
 	publisher.Register(render.NewTwitter(), channel.NewTwitter(cfg.Publishing.Twitter.Enabled))
-	publisher.Register(render.NewInstagram(), channel.NewInstagram(cfg.Publishing.Instagram.Enabled))
+	publisher.Register(render.NewInstagram(), channel.NewInstagram(cfg.Publishing.Instagram.Enabled, instagramAccounts(cfg.Publishing.Instagram.Accounts), nil))
 
-	webhookHandler := webhook.New(cfg.LapVision.WebhookSecret, publisher, repository, logger)
+	webhookHandler := webhook.New(cfg.LapVision.WebhookSecret, publisher, repository, repository, logger)
 
 	// Metrics
 	config.InitMetrics()
@@ -106,6 +106,7 @@ func runMetricServer(cfg *config.Metrics, wh *webhook.Handler, log *slog.Logger)
 	mh := chi.NewRouter()
 	mh.HandleFunc("/metrics", promhttp.Handler().ServeHTTP)
 	mh.Post("/internal/publications", wh.Publications)
+	mh.Post("/internal/publications/{event_id}/resend", wh.Resend)
 
 	// The delivery channels are administered from lap_vision: the screen is there, the rows and
 	// the tokens are here.
@@ -133,6 +134,15 @@ func runMetricServer(cfg *config.Metrics, wh *webhook.Handler, log *slog.Logger)
 	if !errors.Is(err, http.ErrServerClosed) {
 		log.Error("failed to listen promhandler server")
 	}
+}
+
+func instagramAccounts(accounts []config.InstagramAccount) []channel.InstagramAccount {
+	out := make([]channel.InstagramAccount, 0, len(accounts))
+	for _, account := range accounts {
+		out = append(out, channel.InstagramAccount{AccountID: account.AccountID, AccessToken: account.AccessToken})
+	}
+
+	return out
 }
 
 func runMigrations(db *sql.DB, dir string) error {

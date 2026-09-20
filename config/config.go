@@ -94,10 +94,18 @@ type TwitterChannel struct {
 	AccessTokenSecret string `json:"access_token_secret"`
 }
 
+// InstagramChannel posts to one or more Instagram business accounts, each reached through its
+// own OAuth token: a token is issued to a single Instagram Login and cannot post for another.
 type InstagramChannel struct {
-	Enabled     bool   `json:"enabled"`
-	AccessToken string `json:"access_token"`
+	Enabled  bool               `json:"enabled"`
+	Accounts []InstagramAccount `json:"accounts"`
+}
+
+// InstagramAccount is one authorised account. AccountID is the Instagram business account's own
+// numeric id, which is also what a delivery channel's Target must name to reach it.
+type InstagramAccount struct {
 	AccountID   string `json:"account_id"`
+	AccessToken string `json:"access_token"`
 }
 
 type Metrics struct {

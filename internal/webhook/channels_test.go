@@ -78,7 +78,7 @@ func (f *fakeChannels) DeleteDeliveryChannel(_ context.Context, id int64) error 
 const channelSecret = "s3cret"
 
 func channelRouter(store ChannelStore) chi.Router {
-	handler := New(channelSecret, nil, store, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	handler := New(channelSecret, nil, store, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	router := chi.NewRouter()
 	router.Get(contract.ChannelsPath, handler.Channels)
 	router.Post(contract.ChannelsPath, handler.Channels)

@@ -322,6 +322,57 @@ func TestDispatchRendersPerChannel(t *testing.T) {
 	}
 }
 
+// Redeliver goes straight to the channel it is given, ignoring the filters that would normally
+// pick channels and the dedupe that would normally skip one already delivered — an administrator
+// choosing the destination by hand means both are beside the point.
+func TestRedeliverIgnoresFiltersAndPriorDelivery(t *testing.T) {
+	store := newStore()
+	telegram := &recordingPublisher{name: "telegram"}
+	d := testDispatcher(store, telegram)
+	envelope := testEnvelope(t)
+	target := models.DeliveryChannel{ID: 7, Channel: "telegram", Target: "@chosen", Enabled: true}
+
+	// Mark it already delivered to this very channel, the way a prior Dispatch would have.
+	if err := store.MarkDelivery(context.Background(), envelope.ID, target.ID, "delivered", "", "ref-0"); err != nil {
+		t.Fatalf("seed prior delivery: %v", err)
+	}
+
+	status, ref, err := d.Redeliver(context.Background(), envelope, target)
+	if err != nil {
+		t.Fatalf("Redeliver: %v", err)
+	}
+	if status != "delivered" || ref == "" {
+		t.Errorf("status = %q, ref = %q, want a fresh delivered send", status, ref)
+	}
+	if telegram.count() != 1 {
+		t.Errorf("telegram received %d posts, want 1", telegram.count())
+	}
+	if len(telegram.sent) != 1 || !strings.Contains(telegram.sent[0], "@chosen:") {
+		t.Errorf("sent %v, want the chosen target", telegram.sent)
+	}
+}
+
+// A publisher failure on a resend must be reported rather than swallowed, so the administrator
+// who chose this channel by hand learns it did not go out.
+func TestRedeliverReportsPublisherFailure(t *testing.T) {
+	store := newStore()
+	telegram := &recordingPublisher{name: "telegram", err: errors.New("chat not found")}
+	d := testDispatcher(store, telegram)
+	envelope := testEnvelope(t)
+	target := models.DeliveryChannel{ID: 7, Channel: "telegram", Target: "@chosen", Enabled: true}
+
+	status, _, err := d.Redeliver(context.Background(), envelope, target)
+	if err == nil {
+		t.Fatal("expected the publisher error to surface")
+	}
+	if status != "failed" {
+		t.Errorf("status = %q, want failed", status)
+	}
+	if got := store.statusFor(target.ID); got != "failed" {
+		t.Errorf("recorded as %q, want failed", got)
+	}
+}
+
 func TestDispatchFailsOnUnknownEventType(t *testing.T) {
 	store := newStore(models.DeliveryChannel{ID: 1, Channel: "telegram", Target: "@chan", Enabled: true})
 	envelope := testEnvelope(t)

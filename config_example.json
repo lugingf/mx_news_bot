@@ -30,11 +30,20 @@
     },
     "instagram": {
       "enabled": false,
-      "access_token": "",
-      "account_id": ""
+      "accounts": [
+        {
+          "account_id": "IG_MOTO_BUSINESS_ACCOUNT_ID",
+          "access_token": "IG_MOTO_LONG_LIVED_TOKEN"
+        },
+        {
+          "account_id": "IG_F1_BUSINESS_ACCOUNT_ID",
+          "access_token": "IG_F1_LONG_LIVED_TOKEN"
+        }
+      ]
     },
-    "_channels": "Каналы доставки. Что здесь написано, то и будет в таблице delivery_channels — синхронизация на каждом старте, руками ничего вставлять не надо. Отбор тремя фильтрами: disciplines, championships, post_types; пустой список = не сужает, складываются по AND. rehearsal: true — канал получает ТОЛЬКО репетиции (кнопка «В тест» в админке), боевые каналы репетиции не получают. target — @имя или числовой chat id. Бот должен быть админом канала. Канал, который есть в таблице, но не описан здесь, не трогается — его можно завести из админки под опыт.",
+    "_channels": "Каналы доставки. Что здесь написано, то и будет в таблице delivery_channels — синхронизация на каждом старте, руками ничего вставлять не надо. Отбор тремя фильтрами: disciplines, championships, post_types; пустой список = не сужает, складываются по AND. rehearsal: true — канал получает ТОЛЬКО репетиции (кнопка «В тест» в админке), боевые каналы репетиции не получают. target — @имя/chat id для Telegram, id аккаунта из publishing.instagram.accounts для Instagram. Канал, который есть в таблице, но не описан здесь, не трогается — его можно завести из админки под опыт.",
     "_telegram": "enabled включает отправку в Telegram. chat_id — запасной адресат на случай, если в delivery_channels нет ни одной строки; при настроенных каналах не используется.",
+    "_instagram": "enabled включает отправку в Instagram. Каждый аккаунт — свой access_token: токен Graph API выдаётся на один Instagram-аккаунт и не работает для другого. target в delivery_channels должен совпадать с account_id.",
     "channels": [
       {
         "channel": "telegram",
@@ -62,6 +71,30 @@
         "channel": "telegram",
         "target": "-1004350283613",
         "title": "Racing Hub: F1",
+        "enabled": true,
+        "rehearsal": false,
+        "disciplines": [
+          "f1"
+        ],
+        "championships": [],
+        "post_types": []
+      },
+      {
+        "channel": "instagram",
+        "target": "IG_MOTO_BUSINESS_ACCOUNT_ID",
+        "title": "Instagram: Moto",
+        "enabled": true,
+        "rehearsal": false,
+        "disciplines": [
+          "moto"
+        ],
+        "championships": [],
+        "post_types": []
+      },
+      {
+        "channel": "instagram",
+        "target": "IG_F1_BUSINESS_ACCOUNT_ID",
+        "title": "Instagram: F1",
         "enabled": true,
         "rehearsal": false,
         "disciplines": [
