@@ -198,6 +198,13 @@ server {
         proxy_set_header Connection "";
     }
 
+    location ^~ /internal/publications/ {
+        proxy_pass http://${new_name}:${METRICS_PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header Connection "";
+    }
+
     # The delivery channels are administered from lap_vision: the screen is there, the rows are
     # here. A prefix match rather than an exact one, because editing and deleting a channel address
     # it as /internal/channels/{id} — an exact match answers the list and 404s every write.
