@@ -101,10 +101,17 @@ func (t Telegram) compose(post contentmodel.Post) string {
 		b.WriteString("\n")
 	}
 
-	for _, section := range post.Sections {
-		b.WriteString("\n*")
-		b.WriteString(escapeMarkdown(section.Heading))
-		b.WriteString("*\n")
+	for index, section := range post.Sections {
+		switch {
+		case section.Heading != "":
+			b.WriteString("\n*")
+			b.WriteString(escapeMarkdown(section.Heading))
+			b.WriteString("*\n")
+		case index > 0:
+			// A later section still gets its own blank line before it; the first one does not
+			// need a second, since the title/subtitle block above already left one.
+			b.WriteString("\n")
+		}
 		b.WriteString(escapeMarkdown(section.Body))
 		b.WriteString("\n")
 	}

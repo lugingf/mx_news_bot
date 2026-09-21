@@ -62,6 +62,35 @@ func TestRenderedPostIsPassedThroughAsComposed(t *testing.T) {
 	}
 }
 
+// The hook is the call-to-action lap_vision composes alongside the lines. It must survive to the
+// rendered post, not be dropped silently by the wire contract.
+func TestHookSurvivesIntoTheBody(t *testing.T) {
+	payload := samplePayload()
+	payload.Hook = "Как думаете, кто выиграет следующий этап?"
+	post, err := RenderedPostBuilder{}.Build(envelopeFor(t, payload))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(post.Sections) != 1 || !strings.Contains(post.Sections[0].Body, payload.Hook) {
+		t.Fatalf("expected the hook in the body: %+v", post.Sections)
+	}
+}
+
+// A post with only a hook and no lines must still carry it — the hook is not conditional on lines
+// existing.
+func TestHookAloneStillBecomesASection(t *testing.T) {
+	payload := samplePayload()
+	payload.Lines = nil
+	payload.Hook = "Отметьте друга, который это оценит"
+	post, err := RenderedPostBuilder{}.Build(envelopeFor(t, payload))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(post.Sections) != 1 || post.Sections[0].Body != payload.Hook {
+		t.Fatalf("expected the hook alone as the body: %+v", post.Sections)
+	}
+}
+
 // The discipline is what routes a post to the moto channel or the F1 one, so it has to survive as
 // a tag even when the sender lists no tags of its own.
 func TestDisciplineBecomesTheFirstTag(t *testing.T) {

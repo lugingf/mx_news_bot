@@ -57,7 +57,9 @@ func (h *Handler) Resend(w http.ResponseWriter, r *http.Request) {
 
 	record, err := h.resend.GetPublication(ctx, eventID)
 	if errors.Is(err, domain.ErrNotFound) {
-		http.Error(w, "no such publication", http.StatusNotFound)
+		// A structured body, not just the 404 status, so a caller resending on lap_vision's behalf
+		// can tell this apart from "no such channel" below instead of guessing from one status code.
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "no such publication"})
 		return
 	}
 	if err != nil {
@@ -68,7 +70,7 @@ func (h *Handler) Resend(w http.ResponseWriter, r *http.Request) {
 
 	target, err := h.resend.GetDeliveryChannel(ctx, req.ChannelID)
 	if errors.Is(err, domain.ErrChannelNotFound) {
-		http.Error(w, "no such channel", http.StatusNotFound)
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "no such channel"})
 		return
 	}
 	if err != nil {

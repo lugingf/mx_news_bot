@@ -39,7 +39,15 @@ func (RenderedPostBuilder) Build(envelope contract.Envelope) (contentmodel.Post,
 
 	// The lines are the body. They arrive as statements rather than as labelled fields, so they
 	// go into one section instead of being forced into a meta block they were not written for.
-	if body := strings.TrimSpace(strings.Join(payload.Lines, "\n")); body != "" {
+	body := strings.TrimSpace(strings.Join(payload.Lines, "\n"))
+	if hook := strings.TrimSpace(payload.Hook); hook != "" {
+		if body != "" {
+			body += "\n\n" + hook
+		} else {
+			body = hook
+		}
+	}
+	if body != "" {
 		post.Sections = []contentmodel.Section{{Body: body}}
 	}
 

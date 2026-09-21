@@ -84,7 +84,7 @@ func TestSignatureIsPrefixed(t *testing.T) {
 // cannot share a module through a replace directive. This is the same JSON pinned on the
 // lap_vision side, so a field renamed there fails here.
 func TestRenderedPostGoldenJSON(t *testing.T) {
-	const wire = `{"id":"abc123","type":"rendered_post","version":1,"occurred_at":"2026-09-13T12:00:00Z","payload":{"discipline":"moto","post_type":"event_result","championship":"FIM Motocross World Championship","title":"MXGP of China · MXGP","subtitle":"FIM Motocross World Championship, этап 18","lines":["Победа: Jeffrey Herlings"],"table":{"header":["#","Гонщик"],"rows":[["1","Jeffrey Herlings"]]},"tags":["moto"],"image":{"layers":[{"kind":"rider","key":"Jeffrey Herlings"}],"title":"MXGP of China","stats":[{"label":"Jeffrey Herlings","value":"50"}]}}}`
+	const wire = `{"id":"abc123","type":"rendered_post","version":1,"occurred_at":"2026-09-13T12:00:00Z","payload":{"discipline":"moto","post_type":"event_result","championship":"FIM Motocross World Championship","title":"MXGP of China · MXGP","subtitle":"FIM Motocross World Championship, этап 18","lines":["Победа: Jeffrey Herlings"],"hook":"Как думаете, кто выиграет следующий этап?","table":{"header":["#","Гонщик"],"rows":[["1","Jeffrey Herlings"]]},"tags":["moto"],"image":{"layers":[{"kind":"rider","key":"Jeffrey Herlings"}],"title":"MXGP of China","stats":[{"label":"Jeffrey Herlings","value":"50"}]}}}`
 
 	var envelope Envelope
 	if err := json.Unmarshal([]byte(wire), &envelope); err != nil {
@@ -107,6 +107,10 @@ func TestRenderedPostGoldenJSON(t *testing.T) {
 	}
 	if payload.Table == nil || len(payload.Table.Rows) != 1 || payload.Table.Rows[0][1] != "Jeffrey Herlings" {
 		t.Fatalf("unexpected table: %+v", payload.Table)
+	}
+	// The hook is a wire field, not something dropped silently by a struct that forgot about it.
+	if payload.Hook != "Как думаете, кто выиграет следующий этап?" {
+		t.Fatalf("hook = %q", payload.Hook)
 	}
 	if payload.Image == nil || len(payload.Image.Layers) != 1 || payload.Image.Layers[0].Kind != "rider" {
 		t.Fatalf("unexpected image: %+v", payload.Image)

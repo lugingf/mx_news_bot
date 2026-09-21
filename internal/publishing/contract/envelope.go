@@ -100,14 +100,17 @@ type RenderedPostPayload struct {
 	Team string `json:"team,omitempty"`
 	// Rehearsal marks a post sent to be looked at rather than published. It reaches only the
 	// channels registered as rehearsal channels.
-	Rehearsal bool           `json:"rehearsal,omitempty"`
-	Title     string         `json:"title"`
-	Subtitle  string         `json:"subtitle"`
-	Lines     []string       `json:"lines,omitempty"`
-	Table     *RenderedTable `json:"table,omitempty"`
-	Tags      []string       `json:"tags,omitempty"`
-	Link      string         `json:"link,omitempty"`
-	Image     *RenderedImage `json:"image,omitempty"`
+	Rehearsal bool     `json:"rehearsal,omitempty"`
+	Title     string   `json:"title"`
+	Subtitle  string   `json:"subtitle"`
+	Lines     []string `json:"lines,omitempty"`
+	// Hook is the line that asks the reader for something, kept apart from the lines that state
+	// what happened so a receiver may place it where it likes.
+	Hook  string         `json:"hook,omitempty"`
+	Table *RenderedTable `json:"table,omitempty"`
+	Tags  []string       `json:"tags,omitempty"`
+	Link  string         `json:"link,omitempty"`
+	Image *RenderedImage `json:"image,omitempty"`
 }
 
 type RenderedTable struct {
