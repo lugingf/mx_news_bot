@@ -123,6 +123,15 @@ type PublicationRecord struct {
 	Payload   []byte `db:"payload"`
 }
 
+// InstagramToken is the current posting token for one Instagram professional account. The first
+// value comes from config; refreshes are stored here because production config is read-only.
+type InstagramToken struct {
+	AccountID   string     `db:"account_id"`
+	AccessToken string     `db:"access_token"`
+	ExpiresAt   *time.Time `db:"expires_at"`
+	RefreshedAt *time.Time `db:"refreshed_at"`
+}
+
 // DeliveryChannelRecord is the whole row, as the administration screen edits it. The dispatcher
 // works with DeliveryChannel instead: it has already been told which channels match, and the
 // filters that decided it are none of its business.

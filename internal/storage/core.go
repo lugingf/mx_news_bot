@@ -220,3 +220,33 @@ func (r *Repository) MarkDelivery(ctx context.Context, eventID string, channelID
 
 	return nil
 }
+
+// DeclareInstagramToken seeds one configured account without overwriting a token that the
+// refresher already rotated. A changed config can still be applied manually by updating this row.
+func (r *Repository) DeclareInstagramToken(ctx context.Context, token models.InstagramToken) error {
+	if token.AccountID == "" || token.AccessToken == "" {
+		return nil
+	}
+	if _, err := r.db.ExecContext(ctx, sqlDeclareInstagramToken, token.AccountID, token.AccessToken); err != nil {
+		return errors.Wrap(err, "storage: declare instagram token")
+	}
+
+	return nil
+}
+
+func (r *Repository) ListInstagramTokens(ctx context.Context) ([]models.InstagramToken, error) {
+	var tokens []models.InstagramToken
+	if err := r.db.SelectContext(ctx, &tokens, sqlListInstagramTokens); err != nil {
+		return nil, errors.Wrap(err, "storage: list instagram tokens")
+	}
+
+	return tokens, nil
+}
+
+func (r *Repository) UpdateInstagramToken(ctx context.Context, token models.InstagramToken) error {
+	if _, err := r.db.ExecContext(ctx, sqlUpdateInstagramToken, token.AccountID, token.AccessToken, token.ExpiresAt, token.RefreshedAt); err != nil {
+		return errors.Wrap(err, "storage: update instagram token")
+	}
+
+	return nil
+}

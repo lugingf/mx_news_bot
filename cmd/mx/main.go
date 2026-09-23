@@ -18,6 +18,7 @@ import (
 	"mx_news_bot/config"
 	"mx_news_bot/internal/adapters/lapvision"
 	"mx_news_bot/internal/bot"
+	"mx_news_bot/internal/models"
 	"mx_news_bot/internal/publishing"
 	"mx_news_bot/internal/publishing/builder"
 	"mx_news_bot/internal/publishing/channel"
@@ -63,24 +64,40 @@ func main() {
 	results := lapvision.New(cfg.LapVision.BaseURL, cfg.LapVision.InternalToken, cfg.LapVision.RequestTimeout)
 	application := service.NewApp(results, repository, logger)
 	botClient := bot.New(&cfg.App.Bot, application, logger)
+	publishingCfg := cfg.Publishing
+	if publishingCfg == nil {
+		publishingCfg = &config.Publishing{}
+	}
 
 	// The channels a deployment posts to are described in its config, and the table is brought in
 	// line with that description here — so a new channel is a config change and a deploy, not an
 	// INSERT somebody has to remember to run.
-	if cfg.Publishing != nil {
-		if err := publishing.DeclareChannels(ctx, repository, cfg.Publishing.Channels, logger); err != nil {
-			logger.Error("cannot declare delivery channels", "err", err)
+	if err := publishing.DeclareChannels(ctx, repository, publishingCfg.Channels, logger); err != nil {
+		logger.Error("cannot declare delivery channels", "err", err)
+		os.Exit(1)
+	}
+
+	instagramEnabled, instagramAccounts := instagramConfig(publishingCfg.Instagram)
+	instagramTokens := channel.NewInstagramTokenCache(instagramAccounts)
+	if instagramEnabled {
+		if err := declareInstagramTokens(ctx, repository, instagramAccounts); err != nil {
+			logger.Error("cannot declare instagram tokens", "err", err)
 			os.Exit(1)
 		}
+		if err := loadInstagramTokens(ctx, repository, instagramTokens); err != nil {
+			logger.Error("cannot load instagram tokens", "err", err)
+			os.Exit(1)
+		}
+		go channel.NewInstagramTokenRefresher(repository, instagramTokens, nil, logger).Run(ctx)
 	}
 
 	// The dispatcher fans one publication out to every registered channel. Telegram and Instagram
 	// post through their own APIs; Twitter is a stub until its API is wired, and reports itself
 	// as not configured.
-	publisher := dispatcher.NewWithPause(repository, builder.DefaultRegistry(), cfg.Publishing.ChannelPause, logger)
+	publisher := dispatcher.NewWithPause(repository, builder.DefaultRegistry(), publishingCfg.ChannelPause, logger)
 	publisher.Register(render.NewTelegram(), channel.NewTelegram(botClient.Client))
-	publisher.Register(render.NewTwitter(), channel.NewTwitter(cfg.Publishing.Twitter.Enabled))
-	publisher.Register(render.NewInstagram(), channel.NewInstagram(cfg.Publishing.Instagram.Enabled, instagramAccounts(cfg.Publishing.Instagram.Accounts), nil))
+	publisher.Register(render.NewTwitter(), channel.NewTwitter(twitterEnabled(publishingCfg.Twitter)))
+	publisher.Register(render.NewInstagram(), channel.NewInstagramWithTokenSource(instagramEnabled, instagramTokens, nil))
 
 	webhookHandler := webhook.New(cfg.LapVision.WebhookSecret, publisher, repository, repository, logger)
 
@@ -136,6 +153,14 @@ func runMetricServer(cfg *config.Metrics, wh *webhook.Handler, log *slog.Logger)
 	}
 }
 
+func instagramConfig(cfg *config.InstagramChannel) (bool, []channel.InstagramAccount) {
+	if cfg == nil || !cfg.Enabled {
+		return false, nil
+	}
+
+	return true, instagramAccounts(cfg.Accounts)
+}
+
 func instagramAccounts(accounts []config.InstagramAccount) []channel.InstagramAccount {
 	out := make([]channel.InstagramAccount, 0, len(accounts))
 	for _, account := range accounts {
@@ -143,6 +168,40 @@ func instagramAccounts(accounts []config.InstagramAccount) []channel.InstagramAc
 	}
 
 	return out
+}
+
+func twitterEnabled(cfg *config.TwitterChannel) bool {
+	return cfg != nil && cfg.Enabled
+}
+
+type instagramTokenDeclarer interface {
+	DeclareInstagramToken(ctx context.Context, token models.InstagramToken) error
+	ListInstagramTokens(ctx context.Context) ([]models.InstagramToken, error)
+}
+
+func declareInstagramTokens(ctx context.Context, store instagramTokenDeclarer, accounts []channel.InstagramAccount) error {
+	for _, account := range accounts {
+		if err := store.DeclareInstagramToken(ctx, models.InstagramToken{
+			AccountID:   account.AccountID,
+			AccessToken: account.AccessToken,
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func loadInstagramTokens(ctx context.Context, store instagramTokenDeclarer, cache *channel.InstagramTokenCache) error {
+	tokens, err := store.ListInstagramTokens(ctx)
+	if err != nil {
+		return err
+	}
+	for _, token := range tokens {
+		cache.Set(token.AccountID, token.AccessToken)
+	}
+
+	return nil
 }
 
 func runMigrations(db *sql.DB, dir string) error {

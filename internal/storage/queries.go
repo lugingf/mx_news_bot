@@ -127,4 +127,25 @@ const (
 		FROM delivery_channels
 		WHERE id = $1
 	`
+
+	sqlDeclareInstagramToken = `
+		INSERT INTO instagram_tokens (account_id, access_token)
+		VALUES ($1, $2)
+		ON CONFLICT (account_id) DO NOTHING
+	`
+
+	sqlListInstagramTokens = `
+		SELECT account_id, access_token, expires_at, refreshed_at
+		FROM instagram_tokens
+		ORDER BY account_id
+	`
+
+	sqlUpdateInstagramToken = `
+		UPDATE instagram_tokens
+		SET access_token = $2,
+		    expires_at = $3,
+		    refreshed_at = $4,
+		    updated_at = now()
+		WHERE account_id = $1
+	`
 )

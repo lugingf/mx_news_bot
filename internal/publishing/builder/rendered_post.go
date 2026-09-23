@@ -55,10 +55,20 @@ func (RenderedPostBuilder) Build(envelope contract.Envelope) (contentmodel.Post,
 		post.Table = table(*payload.Table)
 	}
 
-	// Only a picture that already exists can be attached. A description of one the media side has
-	// not composed yet is not something a channel can send, and dropping it is better than
-	// posting a broken attachment.
-	if payload.Image != nil && strings.TrimSpace(payload.Image.URL) != "" {
+	// A gallery is a set of pictures already filed, sent together as they are — nothing here draws
+	// a card from them. It takes the place of the one drawn image rather than joining it: a post
+	// names one or the other, not both.
+	if len(payload.Images) > 0 {
+		post.Media = make([]contentmodel.Media, 0, len(payload.Images))
+		for _, img := range payload.Images {
+			if trimmed := strings.TrimSpace(img); trimmed != "" {
+				post.Media = append(post.Media, contentmodel.Media{URL: trimmed, Kind: contentmodel.MediaImage})
+			}
+		}
+	} else if payload.Image != nil && strings.TrimSpace(payload.Image.URL) != "" {
+		// Only a picture that already exists can be attached. A description of one the media side
+		// has not composed yet is not something a channel can send, and dropping it is better than
+		// posting a broken attachment.
 		post.Media = []contentmodel.Media{{
 			URL:     payload.Image.URL,
 			Caption: payload.Image.Title,

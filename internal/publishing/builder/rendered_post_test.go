@@ -130,6 +130,28 @@ func TestOnlyAnExistingPictureIsAttached(t *testing.T) {
 	}
 }
 
+// A gallery names pictures already filed to be sent as they are, taking the place of the one
+// drawn Image rather than joining it — a post carries one or the other.
+func TestGalleryBecomesMultipleMediaItems(t *testing.T) {
+	payload := samplePayload()
+	payload.Images = []string{
+		"https://media.lapvision.org/zandvoort-1.jpg",
+		"https://media.lapvision.org/zandvoort-2.jpg",
+	}
+	payload.Image = &contract.RenderedImage{URL: "https://media.lapvision.org/should-not-be-used.png"}
+
+	post, err := RenderedPostBuilder{}.Build(envelopeFor(t, payload))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(post.Media) != 2 {
+		t.Fatalf("expected both gallery pictures, got %+v", post.Media)
+	}
+	if post.Media[0].URL != payload.Images[0] || post.Media[1].URL != payload.Images[1] {
+		t.Fatalf("expected the gallery in order, got %+v", post.Media)
+	}
+}
+
 func TestAPostWithoutATitleIsRefused(t *testing.T) {
 	payload := samplePayload()
 	payload.Title = "  "

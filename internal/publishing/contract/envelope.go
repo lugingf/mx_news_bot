@@ -111,6 +111,11 @@ type RenderedPostPayload struct {
 	Tags  []string       `json:"tags,omitempty"`
 	Link  string         `json:"link,omitempty"`
 	Image *RenderedImage `json:"image,omitempty"`
+	// Images is a gallery of pictures already filed, meant to be sent together and unmodified — a
+	// circuit diagram from several angles, say — rather than the one drawn card Image describes.
+	// A channel that can carry more than one photo per post sends these as an album or a carousel;
+	// one that cannot falls back to the first.
+	Images []string `json:"images,omitempty"`
 }
 
 type RenderedTable struct {
