@@ -55,10 +55,12 @@ func (RenderedPostBuilder) Build(envelope contract.Envelope) (contentmodel.Post,
 		post.Table = table(*payload.Table)
 	}
 
-	// A gallery is a set of pictures already filed, sent together as they are — nothing here draws
-	// a card from them. It takes the place of the one drawn image rather than joining it: a post
-	// names one or the other, not both.
-	if len(payload.Images) > 0 {
+	// A clip takes the place of every picture. A gallery is a set of pictures already filed, sent
+	// together as they are — nothing here draws a card from them. It takes the place of the one
+	// drawn image rather than joining it: a post names one or the other, not both.
+	if video := strings.TrimSpace(payload.Video); video != "" {
+		post.Media = []contentmodel.Media{{URL: video, Kind: contentmodel.MediaVideo}}
+	} else if len(payload.Images) > 0 {
 		post.Media = make([]contentmodel.Media, 0, len(payload.Images))
 		for _, img := range payload.Images {
 			if trimmed := strings.TrimSpace(img); trimmed != "" {

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"mx_news_bot/internal/publishing/contentmodel"
 	"mx_news_bot/internal/publishing/contract"
 )
 
@@ -149,6 +150,21 @@ func TestGalleryBecomesMultipleMediaItems(t *testing.T) {
 	}
 	if post.Media[0].URL != payload.Images[0] || post.Media[1].URL != payload.Images[1] {
 		t.Fatalf("expected the gallery in order, got %+v", post.Media)
+	}
+}
+
+func TestAClipReplacesEveryPicture(t *testing.T) {
+	payload := samplePayload()
+	payload.Video = "https://lapvision.org/api/publications/video/clip.mp4"
+	payload.Images = []string{"https://media.lapvision.org/zandvoort-1.jpg"}
+	payload.Image = &contract.RenderedImage{URL: "https://media.lapvision.org/card.png"}
+
+	post, err := RenderedPostBuilder{}.Build(envelopeFor(t, payload))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(post.Media) != 1 || post.Media[0].Kind != contentmodel.MediaVideo || post.Media[0].URL != payload.Video {
+		t.Fatalf("expected the clip alone, got %+v", post.Media)
 	}
 }
 

@@ -22,6 +22,7 @@ import (
 type Store interface {
 	ClaimPublication(ctx context.Context, eventID, eventType string, payload []byte) (bool, error)
 	DeliveryChannelsFor(ctx context.Context, match contract.Match) ([]models.DeliveryChannel, error)
+	GetDeliveryChannel(ctx context.Context, id int64) (models.DeliveryChannel, error)
 	DeliveredChannelIDs(ctx context.Context, eventID string) (map[int64]struct{}, error)
 	MarkDelivery(ctx context.Context, eventID string, channelID int64, status, lastError, externalRef string) error
 }
@@ -81,7 +82,7 @@ func (d *Dispatcher) Dispatch(ctx context.Context, envelope contract.Envelope) (
 		return Result{}, err
 	}
 
-	channels, err := d.store.DeliveryChannelsFor(ctx, matchOf(envelope))
+	channels, err := d.channelsFor(ctx, envelope)
 	if err != nil {
 		return Result{}, err
 	}
@@ -128,6 +129,24 @@ func (d *Dispatcher) Dispatch(ctx context.Context, envelope contract.Envelope) (
 	wg.Wait()
 
 	return result, nil
+}
+
+// channelsFor is every channel the filters select — or, when the payload names one channel, that
+// channel alone, however the filters would have judged it. A clip is made for one destination.
+func (d *Dispatcher) channelsFor(ctx context.Context, envelope contract.Envelope) ([]models.DeliveryChannel, error) {
+	var probe struct {
+		TargetChannelID int64 `json:"target_channel_id"`
+	}
+	if err := json.Unmarshal(envelope.Payload, &probe); err == nil && probe.TargetChannelID > 0 {
+		target, err := d.store.GetDeliveryChannel(ctx, probe.TargetChannelID)
+		if err != nil {
+			return nil, err
+		}
+
+		return []models.DeliveryChannel{target}, nil
+	}
+
+	return d.store.DeliveryChannelsFor(ctx, matchOf(envelope))
 }
 
 // Redeliver builds the post the same way Dispatch does and sends it to exactly one channel,

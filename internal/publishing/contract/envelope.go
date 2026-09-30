@@ -116,6 +116,12 @@ type RenderedPostPayload struct {
 	// A channel that can carry more than one photo per post sends these as an album or a carousel;
 	// one that cannot falls back to the first.
 	Images []string `json:"images,omitempty"`
+	// Video is a finished clip that can be fetched from this address. It takes the place of the
+	// pictures: a post carries a clip or pictures, not both.
+	Video string `json:"video,omitempty"`
+	// TargetChannelID sends the post to that one delivery channel instead of to every channel whose
+	// filters it matches.
+	TargetChannelID int64 `json:"target_channel_id,omitempty"`
 }
 
 type RenderedTable struct {

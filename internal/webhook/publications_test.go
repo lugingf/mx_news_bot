@@ -31,6 +31,10 @@ type stubStore struct {
 	delivered map[string]map[int64]struct{}
 }
 
+func (s *stubStore) GetDeliveryChannel(context.Context, int64) (models.DeliveryChannel, error) {
+	return models.DeliveryChannel{}, nil
+}
+
 func (s *stubStore) ClaimPublication(_ context.Context, id, _ string, _ []byte) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

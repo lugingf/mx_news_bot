@@ -36,6 +36,16 @@ type mark struct {
 	ref       string
 }
 
+func (s *fakeStore) GetDeliveryChannel(_ context.Context, id int64) (models.DeliveryChannel, error) {
+	for _, channel := range s.channels {
+		if channel.ID == id {
+			return channel, nil
+		}
+	}
+
+	return models.DeliveryChannel{}, errors.New("no such channel")
+}
+
 func newStore(channels ...models.DeliveryChannel) *fakeStore {
 	return &fakeStore{
 		claimed:   map[string]bool{},
@@ -203,6 +213,29 @@ func TestDispatchLooksUpChannelsByEverythingAChannelFiltersOn(t *testing.T) {
 	}
 	if store.asked != want {
 		t.Errorf("channels looked up for %+v, want %+v", store.asked, want)
+	}
+}
+
+// A post that names its channel goes there and nowhere else, whatever the filters would have said.
+func TestDispatchSendsANamedChannelAlone(t *testing.T) {
+	payload, err := json.Marshal(contract.RenderedPostPayload{Discipline: "moto", Title: "Clip", TargetChannelID: 2})
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+
+	store := newStore(
+		models.DeliveryChannel{ID: 1, Channel: "telegram", Target: "@one", Enabled: true},
+		models.DeliveryChannel{ID: 2, Channel: "telegram", Target: "@two", Enabled: true},
+	)
+	telegram := &recordingPublisher{name: "telegram"}
+
+	envelope := contract.Envelope{ID: "evt-clip", Type: contract.TypeRenderedPost, Version: contract.Version, Payload: payload}
+	result, err := testDispatcher(store, telegram).Dispatch(context.Background(), envelope)
+	if err != nil {
+		t.Fatalf("Dispatch: %v", err)
+	}
+	if result.Delivered != 1 || len(store.marks) != 1 || store.marks[0].channelID != 2 {
+		t.Fatalf("expected one delivery to channel 2, got %+v and %+v", result, store.marks)
 	}
 }
 
