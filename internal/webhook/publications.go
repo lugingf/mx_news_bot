@@ -25,6 +25,7 @@ type Handler struct {
 	dispatcher *dispatcher.Dispatcher
 	channels   ChannelStore
 	resend     ResendStore
+	reports    DeliveryReportStore
 	log        *slog.Logger
 }
 

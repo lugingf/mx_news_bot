@@ -99,7 +99,7 @@ func main() {
 	publisher.Register(render.NewTwitter(), channel.NewTwitter(twitterEnabled(publishingCfg.Twitter)))
 	publisher.Register(render.NewInstagram(), channel.NewInstagramWithTokenSource(instagramEnabled, instagramTokens, nil))
 
-	webhookHandler := webhook.New(cfg.LapVision.WebhookSecret, publisher, repository, repository, logger)
+	webhookHandler := webhook.New(cfg.LapVision.WebhookSecret, publisher, repository, repository, logger).WithDeliveryReports(repository)
 
 	// Metrics
 	config.InitMetrics()
@@ -124,6 +124,7 @@ func runMetricServer(cfg *config.Metrics, wh *webhook.Handler, log *slog.Logger)
 	mh.HandleFunc("/metrics", promhttp.Handler().ServeHTTP)
 	mh.Post("/internal/publications", wh.Publications)
 	mh.Post("/internal/publications/{event_id}/resend", wh.Resend)
+	mh.Get(contract.DeliveriesPath, wh.Deliveries)
 
 	// The delivery channels are administered from lap_vision: the screen is there, the rows and
 	// the tokens are here.

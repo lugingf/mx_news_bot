@@ -150,3 +150,17 @@ type DeliveryChannelRecord struct {
 	Championships pq.StringArray `db:"championships"`
 	PostTypes     pq.StringArray `db:"post_types"`
 }
+
+// DeliveryRecord is what became of one publication in one channel, joined with the channel's name
+// so that a report can say which channel without a second lookup.
+type DeliveryRecord struct {
+	EventID     string     `db:"event_id"`
+	ChannelID   int64      `db:"channel_id"`
+	Title       string     `db:"title"`
+	Rehearsal   bool       `db:"rehearsal"`
+	Status      string     `db:"status"`
+	Attempts    int        `db:"attempts"`
+	LastError   string     `db:"last_error"`
+	DeliveredAt *time.Time `db:"delivered_at"`
+	UpdatedAt   time.Time  `db:"updated_at"`
+}

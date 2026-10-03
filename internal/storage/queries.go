@@ -116,6 +116,16 @@ const (
 		WHERE event_id = $1 AND status = 'delivered'
 	`
 
+	// What became of publications, a line per channel, for the delivery report.
+	sqlDeliveriesOf = `
+		SELECT d.event_id, d.channel_id, c.title, c.rehearsal, d.status, d.attempts, d.last_error,
+		       d.delivered_at, d.updated_at
+		FROM publication_deliveries d
+		JOIN delivery_channels c ON c.id = d.channel_id
+		WHERE d.event_id = ANY ($1)
+		ORDER BY d.event_id, d.channel_id
+	`
+
 	sqlGetPublication = `
 		SELECT event_id, event_type, payload
 		FROM publications

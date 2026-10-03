@@ -205,6 +205,18 @@ func (r *Repository) DeliveredChannelIDs(ctx context.Context, eventID string) (m
 	return delivered, nil
 }
 
+func (r *Repository) ListDeliveries(ctx context.Context, eventIDs []string) ([]models.DeliveryRecord, error) {
+	records := make([]models.DeliveryRecord, 0)
+	if len(eventIDs) == 0 {
+		return records, nil
+	}
+	if err := r.db.SelectContext(ctx, &records, sqlDeliveriesOf, pq.StringArray(eventIDs)); err != nil {
+		return nil, errors.Wrap(err, "storage: list deliveries")
+	}
+
+	return records, nil
+}
+
 func (r *Repository) MarkDelivery(ctx context.Context, eventID string, channelID int64, status, lastError, externalRef string) error {
 	var deliveredAt *time.Time
 	if status == "delivered" {

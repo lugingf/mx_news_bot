@@ -1,5 +1,7 @@
 package contract
 
+import "time"
+
 // ChannelsPath is where the bot serves the delivery-channel administration. lap_vision owns the
 // screen; the rows live here, next to the tokens that can actually reach them.
 const ChannelsPath = "/internal/channels"
@@ -43,4 +45,27 @@ type Match struct {
 	Championship string
 	PostType     string
 	Rehearsal    bool
+}
+
+// DeliveriesPath is where the bot reports what became of publications: for each event, one line
+// per channel it was sent to. The ids to ask about come in the query, comma separated.
+const DeliveriesPath = "/internal/publications/deliveries"
+
+// DeliveryReport is what became of one publication in one channel. Channel is the channel's title;
+// the chat id is not reported as a field, though the text of an error may quote it the way the
+// Telegram client wrote it.
+type DeliveryReport struct {
+	EventID     string     `json:"event_id"`
+	ChannelID   int64      `json:"channel_id"`
+	Channel     string     `json:"channel"`
+	Rehearsal   bool       `json:"rehearsal"`
+	Status      string     `json:"status"`
+	Attempts    int        `json:"attempts"`
+	Error       string     `json:"error,omitempty"`
+	DeliveredAt *time.Time `json:"delivered_at,omitempty"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+}
+
+type DeliveryReportList struct {
+	Items []DeliveryReport `json:"items"`
 }
