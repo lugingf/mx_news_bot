@@ -329,7 +329,7 @@ func TestDispatchDoesNotRepostOnRedelivery(t *testing.T) {
 }
 
 // The post is built once and rendered per channel, so the same standings reach Telegram as a
-// monospace table and Twitter as flat lines.
+// list of items and Twitter as flat lines.
 func TestDispatchRendersPerChannel(t *testing.T) {
 	store := newStore(
 		models.DeliveryChannel{ID: 1, Channel: "telegram", Target: "@chan", Enabled: true},
@@ -342,8 +342,8 @@ func TestDispatchRendersPerChannel(t *testing.T) {
 		t.Fatalf("Dispatch: %v", err)
 	}
 
-	if !strings.Contains(telegram.sent[0], "```") {
-		t.Error("the telegram message should carry a fenced table")
+	if strings.Contains(telegram.sent[0], "```") {
+		t.Error("the telegram message must list its table, not fence it")
 	}
 	if strings.Contains(twitter.sent[0], "```") {
 		t.Error("the twitter message must not carry a code fence")

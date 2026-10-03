@@ -79,3 +79,51 @@ func max(a, b int) int {
 
 	return b
 }
+
+// RenderItems writes a table as a list of short items, each led by a bold heading: "1. Leclerc —
+// Ferrari · 25 pts". A fenced grid wraps badly as soon as it is wider than the screen and Telegram
+// gives no way to scroll it; an item is a line that wraps like any other text.
+//
+// A table whose first column is "#" is a ranking and leads with the position and the name; any
+// other table leads with its first cell. The last column is the figure, and a points column is
+// said as points.
+func RenderItems(table contentmodel.Table) string {
+	if len(table.Columns) == 0 {
+		return ""
+	}
+
+	ranking := strings.TrimSpace(table.Columns[0].Header) == "#"
+	unit := ""
+	switch strings.ToLower(strings.TrimSpace(table.Columns[len(table.Columns)-1].Header)) {
+	case "pts", "points":
+		unit = " pts"
+	}
+
+	var b strings.Builder
+	for _, row := range table.Rows {
+		cells := make([]string, 0, len(row))
+		for _, cell := range row {
+			if trimmed := strings.TrimSpace(cell); trimmed != "" {
+				cells = append(cells, trimmed)
+			}
+		}
+		if len(cells) == 0 {
+			continue
+		}
+
+		heading, rest := cells[0], cells[1:]
+		if ranking && len(cells) > 1 {
+			heading, rest = cells[0]+". "+cells[1], cells[2:]
+		}
+		b.WriteString("*" + escapeMarkdown(heading) + "*")
+		if len(rest) > 0 {
+			if unit != "" && len(row) == len(table.Columns) && strings.TrimSpace(row[len(row)-1]) != "" {
+				rest[len(rest)-1] += unit
+			}
+			b.WriteString(" — " + escapeMarkdown(strings.Join(rest, " · ")))
+		}
+		b.WriteString("\n")
+	}
+
+	return b.String()
+}

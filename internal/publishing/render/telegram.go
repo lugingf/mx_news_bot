@@ -31,11 +31,11 @@ func (Telegram) Capabilities() contentmodel.Capabilities {
 	}
 }
 
-// Render keeps the layout the bot's own replies already use: a bold header, a labelled meta
-// block, then the results in a fenced monospace table so the columns line up.
+// Render writes a bold header, a labelled meta block, then the results as a list of items rather
+// than a fenced grid, which Telegram wraps badly on a phone.
 //
 // Over the length limit it drops table rows and re-renders, rather than cutting the string:
-// a cut would leave the code fence unterminated and Telegram would reject the whole message.
+// a cut could land inside a bold heading and Telegram would reject the whole message.
 func (t Telegram) Render(post contentmodel.Post) (contentmodel.Message, error) {
 	text := t.compose(post)
 	if len([]rune(text)) > telegramLimit && post.Table != nil {
@@ -117,9 +117,8 @@ func (t Telegram) compose(post contentmodel.Post) string {
 	}
 
 	if post.Table != nil && len(post.Table.Rows) > 0 {
-		b.WriteString("\n```\n")
-		b.WriteString(RenderTable(*post.Table, 0))
-		b.WriteString("```\n")
+		b.WriteString("\n")
+		b.WriteString(RenderItems(*post.Table))
 	}
 
 	if tags := renderTags(post.Tags); tags != "" {
