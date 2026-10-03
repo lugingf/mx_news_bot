@@ -1,6 +1,7 @@
 package channel
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -48,10 +49,60 @@ func (r recipient) Recipient() string { return string(r) }
 
 type Telegram struct {
 	sender TelegramSender
+	// fetch downloads a picture Telegram would not take by address, so that it can be uploaded
+	// instead.
+	fetch func(ctx context.Context, url string) ([]byte, error)
 }
 
 func NewTelegram(sender TelegramSender) *Telegram {
-	return &Telegram{sender: sender}
+	return &Telegram{sender: sender, fetch: fetchMedia}
+}
+
+// maxUploadBytes is the largest picture or clip fetched to be uploaded: Telegram's own limit for
+// a file a bot uploads.
+const maxUploadBytes = 50 << 20
+
+func fetchMedia(ctx context.Context, address string) ([]byte, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	client := &http.Client{Timeout: 60 * time.Second}
+	response, err := client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = response.Body.Close() }()
+
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("fetch %s: status %d", address, response.StatusCode)
+	}
+
+	return io.ReadAll(io.LimitReader(response.Body, maxUploadBytes))
+}
+
+// addressRejected is Telegram saying it could not take a picture from the address it was given:
+// it could not download it, or what it downloaded was not what it expected. It keeps the answer
+// for an address for a while, so asking again with the same address does not help; uploading the
+// bytes does.
+func addressRejected(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	message := strings.ToLower(err.Error())
+	for _, marker := range []string{
+		"failed to get http url content",
+		"wrong type of the web page content",
+		"wrong file identifier/http url specified",
+	} {
+		if strings.Contains(message, marker) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (*Telegram) Name() string { return "telegram" }
@@ -78,7 +129,7 @@ func (t *Telegram) Publish(ctx context.Context, target string, message contentmo
 	// A gallery — several pictures filed to be sent together, a circuit from more than one angle
 	// say — goes out as one album instead of picking a single one of them to stand for the rest.
 	if gallery := filedMedia(message.Media); len(gallery) > 1 {
-		return t.publishAlbum(target, gallery, message.Text, opts)
+		return t.publishAlbum(ctx, target, gallery, message.Text, opts)
 	}
 
 	media := primaryMedia(message.Media)
@@ -97,16 +148,23 @@ func (t *Telegram) Publish(ctx context.Context, target string, message contentmo
 		caption = ""
 	}
 
-	file := tele.FromURL(media.URL)
-	var attachment any
-	switch media.Kind {
-	case contentmodel.MediaVideo:
-		attachment = &tele.Video{File: file, Caption: caption}
-	default:
-		attachment = &tele.Photo{File: file, Caption: caption}
+	attach := func(file tele.File) any {
+		if media.Kind == contentmodel.MediaVideo {
+			return &tele.Video{File: file, Caption: caption}
+		}
+
+		return &tele.Photo{File: file, Caption: caption}
 	}
 
-	sent, err := t.sender.Send(recipient(target), attachment, opts)
+	sent, err := t.sender.Send(recipient(target), attach(tele.FromURL(media.URL)), opts)
+	if addressRejected(err) {
+		slog.Warn("telegram would not take the picture by address, uploading it", "url", media.URL, "err", err)
+		if data, fetchErr := t.fetch(ctx, media.URL); fetchErr == nil {
+			sent, err = t.sender.Send(recipient(target), attach(tele.FromReader(bytes.NewReader(data))), opts)
+		} else {
+			err = fmt.Errorf("%w (and fetching it to upload failed: %v)", err, fetchErr)
+		}
+	}
 	if err != nil {
 		return Receipt{}, fmt.Errorf("telegram: send to %s: %w", target, err)
 	}
@@ -149,24 +207,45 @@ func filedMedia(media []contentmodel.Media) []contentmodel.Media {
 // item — telebot's own Album.SetCaption does this — following the same overflow rule a single
 // photo does: text too long for a caption is sent as its own message afterward instead of being
 // silently cut down to fit.
-func (t *Telegram) publishAlbum(target string, media []contentmodel.Media, text string, opts *tele.SendOptions) (Receipt, error) {
+func (t *Telegram) publishAlbum(ctx context.Context, target string, media []contentmodel.Media, text string, opts *tele.SendOptions) (Receipt, error) {
 	caption := text
 	textFollowsSeparately := len([]rune(caption)) > telegramCaptionLimit
 	if textFollowsSeparately {
 		caption = ""
 	}
 
-	album := make(tele.Album, 0, len(media))
-	for _, item := range media {
-		if item.Kind == contentmodel.MediaVideo {
-			album = append(album, &tele.Video{File: tele.FromURL(item.URL)})
-			continue
+	build := func(file func(item contentmodel.Media) tele.File) tele.Album {
+		album := make(tele.Album, 0, len(media))
+		for _, item := range media {
+			if item.Kind == contentmodel.MediaVideo {
+				album = append(album, &tele.Video{File: file(item)})
+				continue
+			}
+			album = append(album, &tele.Photo{File: file(item)})
 		}
-		album = append(album, &tele.Photo{File: tele.FromURL(item.URL)})
-	}
-	album.SetCaption(caption)
+		album.SetCaption(caption)
 
-	sent, err := t.sender.SendAlbum(recipient(target), album, opts)
+		return album
+	}
+
+	sent, err := t.sender.SendAlbum(recipient(target), build(func(item contentmodel.Media) tele.File { return tele.FromURL(item.URL) }), opts)
+	if addressRejected(err) {
+		slog.Warn("telegram would not take a picture of the album by address, uploading them", "err", err)
+		uploads := make(map[string][]byte, len(media))
+		var fetchErr error
+		for _, item := range media {
+			if uploads[item.URL], fetchErr = t.fetch(ctx, item.URL); fetchErr != nil {
+				break
+			}
+		}
+		if fetchErr == nil {
+			sent, err = t.sender.SendAlbum(recipient(target), build(func(item contentmodel.Media) tele.File {
+				return tele.FromReader(bytes.NewReader(uploads[item.URL]))
+			}), opts)
+		} else {
+			err = fmt.Errorf("%w (and fetching them to upload failed: %v)", err, fetchErr)
+		}
+	}
 	if err != nil {
 		return Receipt{}, fmt.Errorf("telegram: send album to %s: %w", target, err)
 	}

@@ -343,3 +343,107 @@ func TestInstagramTokenRefresherSkipsTokenFarFromExpiry(t *testing.T) {
 		t.Fatalf("cache token = %q/%v, want current-token/true", token, ok)
 	}
 }
+
+type rejectingSender struct {
+	fakeTelegramSender
+	rejectURLs bool
+}
+
+func (r *rejectingSender) Send(to tele.Recipient, what any, opts ...any) (*tele.Message, error) {
+	if photo, ok := what.(*tele.Photo); ok && r.rejectURLs && photo.FileURL != "" {
+		return nil, errors.New("telegram: failed to get HTTP URL content (400)")
+	}
+
+	return r.fakeTelegramSender.Send(to, what, opts...)
+}
+
+func (r *rejectingSender) SendAlbum(to tele.Recipient, a tele.Album, opts ...any) ([]tele.Message, error) {
+	for _, item := range a {
+		if photo, ok := item.(*tele.Photo); ok && r.rejectURLs && photo.FileURL != "" {
+			return nil, errors.New("telegram: failed to get HTTP URL content (400)")
+		}
+	}
+
+	return r.fakeTelegramSender.SendAlbum(to, a, opts...)
+}
+
+func fakeFetch(_ context.Context, address string) ([]byte, error) {
+	return []byte("bytes of " + address), nil
+}
+
+func TestTelegramPublish_UploadsThePhotoWhenTelegramRefusesTheAddress(t *testing.T) {
+	sender := &rejectingSender{rejectURLs: true}
+	telegram := NewTelegram(sender)
+	telegram.fetch = fakeFetch
+
+	_, err := telegram.Publish(context.Background(), "-100", contentmodel.Message{
+		Text:  "hi",
+		Media: []contentmodel.Media{{URL: "https://x.test/card.png", Kind: contentmodel.MediaImage}},
+	})
+	if err != nil {
+		t.Fatalf("expected the upload to succeed, got %v", err)
+	}
+	if len(sender.sent) != 1 {
+		t.Fatalf("expected one send after the refusal, got %d", len(sender.sent))
+	}
+	photo, ok := sender.sent[0].(*tele.Photo)
+	if !ok || photo.FileURL != "" || photo.FileReader == nil {
+		t.Fatalf("expected an uploaded photo, got %+v", sender.sent[0])
+	}
+}
+
+func TestTelegramPublish_UploadsTheAlbumWhenTelegramRefusesAnAddress(t *testing.T) {
+	sender := &rejectingSender{rejectURLs: true}
+	telegram := NewTelegram(sender)
+	telegram.fetch = fakeFetch
+
+	_, err := telegram.Publish(context.Background(), "-100", contentmodel.Message{
+		Text: "hi",
+		Media: []contentmodel.Media{
+			{URL: "https://x.test/a.png", Kind: contentmodel.MediaImage},
+			{URL: "https://x.test/b.png", Kind: contentmodel.MediaImage},
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected the upload to succeed, got %v", err)
+	}
+	if len(sender.albums) != 1 || len(sender.albums[0]) != 2 {
+		t.Fatalf("expected one album of two, got %+v", sender.albums)
+	}
+	for _, item := range sender.albums[0] {
+		if photo := item.(*tele.Photo); photo.FileURL != "" || photo.FileReader == nil {
+			t.Fatalf("expected uploaded photos, got %+v", photo)
+		}
+	}
+}
+
+func TestTelegramPublish_OtherErrorsAreNotRetriedAsUploads(t *testing.T) {
+	sender := &fakeTelegramSender{err: errors.New("telegram: chat not found (400)")}
+	telegram := NewTelegram(sender)
+	fetched := false
+	telegram.fetch = func(context.Context, string) ([]byte, error) {
+		fetched = true
+		return nil, nil
+	}
+
+	_, err := telegram.Publish(context.Background(), "-100", contentmodel.Message{
+		Text:  "hi",
+		Media: []contentmodel.Media{{URL: "https://x.test/card.png", Kind: contentmodel.MediaImage}},
+	})
+	if err == nil || fetched {
+		t.Fatalf("expected the original error and no upload, got err=%v fetched=%v", err, fetched)
+	}
+}
+
+func TestTelegramPublish_ReportsAFailedUploadToo(t *testing.T) {
+	sender := &rejectingSender{rejectURLs: true}
+	telegram := NewTelegram(sender)
+	telegram.fetch = func(context.Context, string) ([]byte, error) { return nil, errors.New("gone") }
+
+	_, err := telegram.Publish(context.Background(), "-100", contentmodel.Message{
+		Media: []contentmodel.Media{{URL: "https://x.test/card.png", Kind: contentmodel.MediaImage}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "failed to get HTTP URL content") || !strings.Contains(err.Error(), "gone") {
+		t.Fatalf("expected both reasons in the error, got %v", err)
+	}
+}
