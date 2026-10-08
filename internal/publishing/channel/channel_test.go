@@ -162,6 +162,12 @@ func TestTelegramPublish_SingleImageIsNotAnAlbum(t *testing.T) {
 func TestTelegramPublish_AttachesVideo(t *testing.T) {
 	sender := &fakeTelegramSender{}
 	telegram := NewTelegram(sender)
+	clip := testMP4(1080, 1920, 23)
+	fetched := ""
+	telegram.fetch = func(_ context.Context, address string) ([]byte, error) {
+		fetched = address
+		return clip, nil
+	}
 
 	message := contentmodel.Message{
 		Text: "clip",
@@ -178,8 +184,28 @@ func TestTelegramPublish_AttachesVideo(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected a *tele.Video, got %#v", sender.sent[0])
 	}
-	if video.FileURL != message.Media[0].URL {
-		t.Errorf("video file URL = %q, want %q", video.FileURL, message.Media[0].URL)
+	if fetched != message.Media[0].URL || video.FileReader == nil {
+		t.Errorf("expected the clip at %q to be uploaded, fetched %q", message.Media[0].URL, fetched)
+	}
+	if video.Width != 1080 || video.Height != 1920 || video.Duration != 23 || !video.Streaming {
+		t.Errorf("video = %dx%d, %ds, streaming %v; want 1080x1920, 23s, streaming", video.Width, video.Height, video.Duration, video.Streaming)
+	}
+	if video.Caption != "clip" {
+		t.Errorf("caption = %q, want %q", video.Caption, "clip")
+	}
+}
+
+func TestTelegramPublish_VideoThatIsNotAnMP4Fails(t *testing.T) {
+	sender := &fakeTelegramSender{}
+	telegram := NewTelegram(sender)
+	telegram.fetch = func(context.Context, string) ([]byte, error) { return []byte("<html>"), nil }
+
+	message := contentmodel.Message{Media: []contentmodel.Media{{URL: "https://lapvision.org/clip.mp4", Kind: contentmodel.MediaVideo}}}
+	if _, err := telegram.Publish(context.Background(), "-100", message); err == nil {
+		t.Fatal("expected an error")
+	}
+	if len(sender.sent) != 0 {
+		t.Fatalf("expected nothing sent, got %d", len(sender.sent))
 	}
 }
 

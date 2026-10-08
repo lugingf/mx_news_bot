@@ -156,7 +156,13 @@ func (t *Telegram) Publish(ctx context.Context, target string, message contentmo
 		return &tele.Photo{File: file, Caption: caption}
 	}
 
-	sent, err := t.sender.Send(recipient(target), attach(tele.FromURL(media.URL)), opts)
+	var sent *tele.Message
+	var err error
+	if media.Kind == contentmodel.MediaVideo {
+		sent, err = t.sendVideo(ctx, target, media.URL, caption, opts)
+	} else {
+		sent, err = t.sender.Send(recipient(target), attach(tele.FromURL(media.URL)), opts)
+	}
 	if addressRejected(err) {
 		slog.Warn("telegram would not take the picture by address, uploading it", "url", media.URL, "err", err)
 		if data, fetchErr := t.fetch(ctx, media.URL); fetchErr == nil {
@@ -176,6 +182,33 @@ func (t *Telegram) Publish(ctx context.Context, target string, message contentmo
 	}
 
 	return Receipt{Channel: t.Name(), Ref: fmt.Sprintf("%d", sent.ID)}, nil
+}
+
+// sendVideo uploads a clip with its size and length. Sent by address, Telegram knows neither, and
+// phones show it squeezed into a square.
+func (t *Telegram) sendVideo(ctx context.Context, target string, address string, caption string, opts *tele.SendOptions) (*tele.Message, error) {
+	data, err := t.fetch(ctx, address)
+	if err != nil {
+		return nil, fmt.Errorf("fetch clip to upload: %w", err)
+	}
+	if len(data) >= maxUploadBytes {
+		return nil, fmt.Errorf("clip %s is larger than %d bytes", address, maxUploadBytes)
+	}
+	meta, err := readMP4Video(data)
+	if err != nil {
+		return nil, fmt.Errorf("read clip %s: %w", address, err)
+	}
+
+	return t.sender.Send(recipient(target), &tele.Video{
+		File:      tele.FromReader(bytes.NewReader(data)),
+		Caption:   caption,
+		Width:     meta.Width,
+		Height:    meta.Height,
+		Duration:  meta.Duration,
+		Streaming: true,
+		MIME:      "video/mp4",
+		FileName:  "clip.mp4",
+	}, opts)
 }
 
 // primaryMedia is the one attachment a single-photo send gets — the first item in the list that
