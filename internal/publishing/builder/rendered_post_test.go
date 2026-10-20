@@ -106,6 +106,19 @@ func TestDisciplineBecomesTheFirstTag(t *testing.T) {
 	}
 }
 
+func TestDisciplineTagIsNotRepeated(t *testing.T) {
+	payload := samplePayload()
+	payload.Discipline = "f1"
+	payload.Tags = []string{"f1", "formula1", "F1"}
+	post, err := RenderedPostBuilder{}.Build(envelopeFor(t, payload))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(post.Tags) != 2 || post.Tags[0] != "f1" || post.Tags[1] != "formula1" {
+		t.Fatalf("unexpected tags: %+v", post.Tags)
+	}
+}
+
 // A description of a picture nobody has composed yet is not something a channel can send.
 func TestOnlyAnExistingPictureIsAttached(t *testing.T) {
 	payload := samplePayload()

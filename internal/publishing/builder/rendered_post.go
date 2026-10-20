@@ -83,13 +83,22 @@ func (RenderedPostBuilder) Build(envelope contract.Envelope) (contentmodel.Post,
 
 func tags(payload contract.RenderedPostPayload) []string {
 	out := make([]string, 0, len(payload.Tags)+1)
+	seen := make(map[string]struct{}, len(payload.Tags)+1)
 	if discipline := strings.TrimSpace(payload.Discipline); discipline != "" {
 		out = append(out, discipline)
+		seen[discipline] = struct{}{}
 	}
 	for _, tag := range payload.Tags {
-		if trimmed := strings.TrimSpace(tag); trimmed != "" {
-			out = append(out, tagify(trimmed))
+		trimmed := strings.TrimSpace(tag)
+		if trimmed == "" {
+			continue
 		}
+		cleaned := tagify(trimmed)
+		if _, ok := seen[cleaned]; ok {
+			continue
+		}
+		seen[cleaned] = struct{}{}
+		out = append(out, cleaned)
 	}
 
 	return out
