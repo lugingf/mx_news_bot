@@ -35,7 +35,7 @@ const (
 		WHERE enabled = TRUE
 		  AND (cardinality(event_types) = 0   OR $1 = ANY (event_types))
 		  AND (cardinality(disciplines) = 0   OR $2 = ANY (disciplines))
-		  AND (cardinality(championships) = 0 OR $3 = ANY (championships))
+		  AND (cardinality(championships) = 0 OR EXISTS (SELECT 1 FROM unnest(championships) AS c WHERE lower(c) = lower($3)))
 		  AND (cardinality(post_types) = 0    OR $4 = ANY (post_types))
 		  AND rehearsal = $5
 		ORDER BY id

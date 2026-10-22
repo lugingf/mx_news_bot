@@ -249,6 +249,22 @@ RETURNING id`, "@it_rehearsal_"+t.Name())
 		t.Error("the channel was not returned for the posts it is registered for")
 	}
 
+	otherCase := own
+	otherCase.Championship = "ama supercross"
+	caseChannels, err := matches(ctx, otherCase)
+	if err != nil {
+		t.Fatalf("DeliveryChannelsFor other case: %v", err)
+	}
+	foundOtherCase := false
+	for _, c := range caseChannels {
+		if c.ID == motoChannelID {
+			foundOtherCase = true
+		}
+	}
+	if !foundOtherCase {
+		t.Error("the championship filter must not depend on letter case")
+	}
+
 	payload := json.RawMessage(`{"class":"450SX"}`)
 	claimed, err := repo.ClaimPublication(ctx, eventID, "standings", payload)
 	if err != nil {
